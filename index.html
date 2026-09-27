@@ -17,7 +17,7 @@ textarea{width:calc(100% - 16px);min-height:90px;box-sizing:border-box}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{border:1px solid #ccc;padding:5px;text-align:center;vertical-align:middle}
 th{background:#eee}
-#preview{max-width:100%;display:none;margin-top:10px}
+#preview{max-width:100%;display:none;margin-top:10px;border:1px solid #999}
 #status{font-size:12px;color:#555;margin:4px 0 8px 4px}
 .small{font-size:12px;color:#555}
 .danger{background:#b42318;color:#fff;border:1px solid #8f1d13}
@@ -76,21 +76,21 @@ li{margin:4px 0}
 <thead><tr><th>P</th><th>Hora</th><th>Valor</th><th>E.S.</th><th>Tipo E.S.</th><th>Dist</th><th>Ori</th><th>Foto</th><th>X</th></tr></thead>
 <tbody id="tbody"></tbody>
 </table>
-<h4>Captura</h4>
-<button id="btnCaptureMap">Capturar mapa automáticamente</button>
+<h4>Captura del área de medidas (100 m)</h4>
+<button id="btnCaptureMap">Capturar croquis/mapa</button>
 <input type="file" id="imgInput" accept="image/*">
-<div class="small">La captura automática usa el mapa tal cual se ve. Si falla (por restricciones del proveedor de mapas), sube una captura manual con el botón de arriba/foto. Se insertará en el PDF manteniendo la proporción.</div>
+<div class="small">Si prefieres la imagen satélite exacta, puedes subir una captura de pantalla con el botón superior. Si no, se generará el croquis de 100 m automáticamente.</div>
 <img id="preview">
-<button id="btnPDF">Exportar PDF</button>
+<br>
+<button id="btnPDF" style="font-weight:bold;padding:10px 16px;margin-top:10px">Exportar PDF</button>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
 <script>
 const el=id=>document.getElementById(id), STORAGE_KEY="medEER_v31";
 let map=L.map('map').setView([40.4,-3.7],17);
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri'}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',crossOrigin:true}).addTo(map);
 let station=null, stationPhoto='', measures=[], sectors=[], layers=[], moveMode=false;
 const sensitiveOptions=[{value:'',label:'-'},{value:'PP',label:'PP'},{value:'RA',label:'RA'},{value:'ES',label:'ES'},{value:'HS',label:'HS'}];
 
@@ -228,17 +228,84 @@ el('stationPhotoInput').addEventListener('change', async e=>{
   saveAuto();
 });
 el('imgInput').addEventListener('change',e=>{let file=e.target.files[0]; if(!file) return; let r=new FileReader(); r.onload=ev=>{el('preview').src=ev.target.result; el('preview').style.display='block'; saveAuto();}; r.readAsDataURL(file);});
-el('btnCaptureMap').addEventListener('click',()=>{
-  setStatus('Generando captura del mapa...');
-  leafletImage(map, (err, canvas)=>{
-    if(err){ console.error(err); setStatus('No se pudo generar la captura automática.'); alert('No se pudo generar la captura automática (posible restricción del proveedor de mapas). Sube una foto manual como alternativa.'); return; }
-    const dataUrl = canvas.toDataURL('image/png');
-    el('preview').src = dataUrl;
-    el('preview').style.display='block';
-    setStatus('Mapa capturado correctamente.');
-    saveAuto();
+
+function generateDiagramCanvas(){
+  const canvas=document.createElement('canvas');
+  canvas.width=900; canvas.height=600;
+  const ctx=canvas.getContext('2d');
+  
+  // Fondo
+  ctx.fillStyle='#f4f6f8';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  
+  // Rejilla de fondo
+  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1;
+  for(let x=0; x<canvas.width; x+=30){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for(let y=0; y<canvas.height; y+=30){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+  
+  const cx=canvas.width/2, cy=canvas.height/2;
+  const scale=220/100; // 100 metros = 220 píxeles
+  
+  // Círculo 50m
+  ctx.beginPath(); ctx.arc(cx,cy,50*scale,0,2*Math.PI);
+  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle='#64748b'; ctx.font='12px Arial'; ctx.fillText('r = 50 m',cx+50*scale+4,cy-4);
+  
+  // Círculo 100m
+  ctx.beginPath(); ctx.arc(cx,cy,100*scale,0,2*Math.PI);
+  ctx.fillStyle='rgba(37,99,235,0.06)'; ctx.fill();
+  ctx.strokeStyle='#2563eb'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.fillStyle='#1d4ed8'; ctx.font='bold 13px Arial'; ctx.fillText('Radio 100 m',cx+100*scale+6,cy-4);
+  
+  // Rosa de los vientos / Norte
+  ctx.fillStyle='#0f172a'; ctx.font='bold 14px Arial'; ctx.fillText('N',cx-5,cy-100*scale-16);
+  ctx.beginPath(); ctx.moveTo(cx,cy-100*scale-12); ctx.lineTo(cx-6,cy-100*scale-2); ctx.lineTo(cx+6,cy-100*scale-2); ctx.fill();
+  
+  // Sectores
+  sectors.forEach((s,idx)=>{
+    const rad=(s.angle-90)*Math.PI/180;
+    const ex=cx+Math.cos(rad)*100*scale;
+    const ey=cy+Math.sin(rad)*100*scale;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(ex,ey);
+    ctx.strokeStyle='#dc2626'; ctx.lineWidth=3; ctx.stroke();
+    ctx.fillStyle='#b91c1c'; ctx.font='bold 12px Arial';
+    ctx.fillText(`S${idx+1} (${s.angle}°)`, ex+(ex>cx?6:-54), ey+(ey>cy?12:-6));
   });
+  
+  // Puntos de medida
+  measures.forEach((p,idx)=>{
+    const rad=(p.ori-90)*Math.PI/180;
+    const px=cx+Math.cos(rad)*p.dist*scale;
+    const py=cy+Math.sin(rad)*p.dist*scale;
+    ctx.beginPath(); ctx.arc(px,py,6,0,2*Math.PI);
+    ctx.fillStyle='#0284c7'; ctx.fill();
+    ctx.strokeStyle='#ffffff'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#0369a1'; ctx.font='bold 12px Arial';
+    ctx.fillText(`P${idx+1} (${p.dist}m)`, px+8, py+4);
+  });
+  
+  // Estación central
+  ctx.beginPath(); ctx.arc(cx,cy,8,0,2*Math.PI);
+  ctx.fillStyle='#ffffff'; ctx.fill();
+  ctx.strokeStyle='#1e3a8a'; ctx.lineWidth=3.5; ctx.stroke();
+  ctx.fillStyle='#1e3a8a'; ctx.font='bold 12px Arial';
+  ctx.fillText('Estación',cx+12,cy+4);
+  
+  // Leyenda en pie de mapa
+  ctx.fillStyle='#334155'; ctx.font='11px Arial';
+  ctx.fillText('Croquis del entorno de medidas radioeléctricas (100 m)',16,canvas.height-14);
+  
+  return canvas.toDataURL('image/png');
+}
+
+el('btnCaptureMap').addEventListener('click',()=>{
+  const dataUrl=generateDiagramCanvas();
+  el('preview').src=dataUrl;
+  el('preview').style.display='block';
+  setStatus('Croquis de medidas generado correctamente.');
+  saveAuto();
 });
+
 ['name','date','equipo','tecnico','unidad','lat','lng','observaciones','coordText','sectorText'].forEach(id=>{ if(el(id)) el(id).addEventListener('input',saveAuto); if(el(id)) el(id).addEventListener('change',saveAuto); });
 el('btnNewWork').addEventListener('click',()=>{if(!confirm('¿Borrar trabajo actual?')) return; localStorage.removeItem(STORAGE_KEY); station=null; stationPhoto=''; measures=[]; sectors=[]; moveMode=false; clearMap(); ['name','date','equipo','tecnico','observaciones','lat','lng','angle','coordText','sectorText'].forEach(id=>{ if(el(id)) el(id).value=''; }); if(el('unidad')) el('unidad').value='V/m'; setStatus(''); el('coordsDMS').innerHTML=''; el('preview').src=''; el('preview').style.display='none'; el('stationPhotoPreview').src=''; el('stationPhotoPreview').style.display='none'; renderSectors(); renderTable(); map.setView([40.4,-3.7],17);});
 el('btnSaveFile').addEventListener('click',saveWorkToFile);
@@ -295,15 +362,24 @@ el('btnPDF').addEventListener('click', async ()=>{
   const obsLines=obsText?pdf.splitTextToSize(obsText,usableW):[];
   const obsHeight=obsText?(4+obsLines.length*3.2+2):0;
   const legendLines=splitLegend(pdf,usableW), legendHeight=legendLines.length*3.0+3;
+  
+  // Si no hay imagen manual ni previa, generar el croquis automáticamente
+  let mapSrc = el('preview').src;
+  if(!mapSrc || el('preview').style.display==='none'){
+    if(station){
+      mapSrc = generateDiagramCanvas();
+    }
+  }
+
   let imageY=y+2, availableImageH=70;
-  if(el('preview').src){
+  if(mapSrc){
     const img=new Image();
-    await new Promise((resolve,reject)=>{img.onload=resolve; img.onerror=reject; img.src=el('preview').src;});
+    await new Promise((resolve,reject)=>{img.onload=resolve; img.onerror=reject; img.src=mapSrc;});
     let ratio=img.width/img.height, w=usableW, h=w/ratio;
     if(h>availableImageH){h=availableImageH; w=h*ratio;}
     if(w>usableW){w=usableW; h=w/ratio;}
     const x=margin+((usableW-w)/2);
-    pdf.addImage(el('preview').src,getImageFormatFromDataUrl(el('preview').src),x,imageY,w,h);
+    pdf.addImage(mapSrc,getImageFormatFromDataUrl(mapSrc),x,imageY,w,h);
     y=imageY+h+4;
   } else { y=imageY; }
 
