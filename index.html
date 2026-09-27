@@ -1,406 +1,1157 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>MED EER v31</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a3a5c">
+<title>MED EER v31 — IGTEL</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-body{font-family:Arial,sans-serif;margin:0}
-header{background:#0b63a5;color:#fff;padding:10px}
-#main{padding:10px}
-#map{height:360px;border:1px solid #ccc}
-input,button,select,textarea{margin:4px;padding:6px}
-textarea{width:calc(100% - 16px);min-height:90px;box-sizing:border-box}
-.point-label,.sector-label{color:#fff;font-weight:bold;background:transparent!important;border:none!important;box-shadow:none!important;white-space:nowrap;text-shadow:-1px -1px 3px #000,1px -1px 3px #000,-1px 1px 3px #000,1px 1px 3px #000}
-.point-label{font-size:13px}.sector-label{font-size:13px}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{border:1px solid #ccc;padding:5px;text-align:center;vertical-align:middle}
-th{background:#eee}
-#preview{max-width:100%;display:none;margin-top:10px;border:1px solid #999}
-#status{font-size:12px;color:#555;margin:4px 0 8px 4px}
-.small{font-size:12px;color:#555}
-.danger{background:#b42318;color:#fff;border:1px solid #8f1d13}
-.leaflet-div-icon{background:transparent;border:none}
-#coordsDMS{font-size:13px;color:#333;margin:4px}
-.thumb{width:36px;height:36px;object-fit:cover;vertical-align:middle;margin:2px;border:1px solid #ccc}
-.photoInput{font-size:11px;padding:2px}
-li{margin:4px 0}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#edf0f5;color:#1e2530;font-size:14px;padding-bottom:70px}
+input,select,textarea,button{font-family:inherit;font-size:inherit}
+.app-header{background:linear-gradient(135deg,#1a3a5c,#2c5f8a);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.hdr-left h1{font-size:15px;font-weight:700;letter-spacing:.4px}
+.hdr-left p{font-size:10px;opacity:.75;margin-top:1px}
+.save-pill{font-size:10px;padding:3px 9px;border-radius:12px;background:rgba(255,255,255,.18);white-space:nowrap;transition:background .3s}
+.save-pill.ok{background:rgba(76,175,80,.55)}
+.save-pill.busy{background:rgba(255,193,7,.55)}
+.save-pill.err{background:rgba(220,53,69,.55)}
+.offline-dot{display:none;width:8px;height:8px;border-radius:50%;background:#e74c3c;margin-left:6px;vertical-align:middle}
+.container{max-width:820px;margin:0 auto;padding:10px 10px 0}
+.section{background:#fff;border-radius:9px;margin-bottom:10px;box-shadow:0 1px 5px rgba(0,0,0,.1);overflow:hidden}
+.sec-hdr{background:#2c5f8a;color:#fff;padding:11px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;-webkit-tap-highlight-color:transparent}
+.sec-hdr h2{font-size:13px;font-weight:600}
+.sec-hdr .arr{font-size:10px;transition:transform .2s;margin-left:8px}
+.sec-hdr.open .arr{transform:rotate(180deg)}
+.sec-body{padding:12px;display:none}
+.sec-body.open{display:block}
+.row{display:flex;gap:9px;margin-bottom:9px;flex-wrap:wrap}
+.fg{flex:1;min-width:120px}
+.fg.full{min-width:100%;flex-basis:100%}
+.fg label{display:block;font-size:10px;color:#5a6375;margin-bottom:3px;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.fg input,.fg select,.fg textarea{width:100%;padding:7px 9px;border:1px solid #c8cfda;border-radius:5px;background:#f8f9fb;transition:border-color .2s,background .2s}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:#2c5f8a;background:#fff;box-shadow:0 0 0 2px rgba(44,95,138,.12)}
+.fg textarea{resize:vertical;min-height:58px}
+.photo-zone{margin-top:10px;border-top:1px dashed #dde;padding-top:10px}
+.photo-zone .zone-lbl{font-size:10px;color:#5a6375;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:7px;display:block}
+.photo-grid{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:6px}
+.photo-thumb{position:relative;width:78px;height:78px;border-radius:6px;overflow:hidden;border:2px solid #d0d8e4;background:#eee;flex-shrink:0}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-thumb .del-ph{position:absolute;top:2px;right:2px;background:rgba(200,0,0,.85);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.photo-count{font-size:10px;color:#8a94a6;margin-bottom:5px}
+.add-ph-lbl{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#e8f0f7;border:1.5px dashed #2c5f8a;border-radius:6px;color:#2c5f8a;cursor:pointer;font-size:12px;font-weight:600}
+.add-ph-lbl input{display:none}
+#leaflet-map{height:240px;border-radius:6px;border:1px solid #c8cfda;margin-top:8px}
+.map-btns{display:flex;gap:7px;flex-wrap:wrap;margin-top:6px}
+#map-cap-ok{display:none;font-size:11px;color:#27ae60;margin-top:3px}
+#croquis-canvas{border:1px solid #c8cfda;border-radius:6px;max-width:100%;display:block;margin:8px auto 0}
+.card{border:1px solid #d8deea;border-radius:7px;padding:12px;margin-bottom:10px;background:#f4f7fb}
+.card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.card-hdr h3{font-size:13px;font-weight:700;color:#1a3a5c}
+.del-card{background:#b33;color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer}
+.add-btn{display:inline-flex;align-items:center;gap:5px;background:#27ae60;color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;margin-top:4px}
+.tbl-wrap{overflow-x:auto;margin-top:6px}
+.meas-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.meas-tbl th{background:#2c5f8a;color:#fff;padding:5px 4px;text-align:center;white-space:nowrap}
+.meas-tbl td{padding:3px 2px;border:1px solid #d0d8e8;text-align:center;background:#fff}
+.meas-tbl tr:nth-child(even) td{background:#f5f8fc}
+.meas-tbl input,.meas-tbl select{width:100%;padding:3px 2px;border:1px solid #c8cfda;border-radius:3px;text-align:center;font-size:11px;background:#fff}
+.c-si{background:#d4edda!important;color:#155724;font-weight:700}
+.c-no{background:#f8d7da!important;color:#721c24;font-weight:700}
+.add-row-btn{margin-top:5px;padding:4px 10px;background:#3498db;color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer}
+.badge{display:inline-block;background:#e74c3c;color:#fff;border-radius:10px;padding:1px 7px;font-size:10px;margin-left:5px;vertical-align:middle}
+.div{border:none;border-top:1px solid #e4e8f0;margin:10px 0}
+.res-block{padding:10px;border-radius:6px;text-align:center;font-size:13px;font-weight:700;margin-bottom:10px}
+.res-cumple{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+.res-no{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
+.res-cond{background:#fff3cd;color:#856404;border:1px solid #ffeaa7}
+.action-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid #2c5f8a;padding:9px 14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;z-index:999;box-shadow:0 -2px 8px rgba(0,0,0,.12)}
+.btn{padding:9px 16px;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:opacity .2s;white-space:nowrap}
+.btn:active{opacity:.75}
+.btn-save{background:#2c5f8a;color:#fff}
+.btn-pdf{background:#b33;color:#fff}
+.btn-gps{background:#27ae60;color:#fff}
+.btn-clear{background:#6c757d;color:#fff}
+.btn-purple{background:#7b2fbe;color:#fff}
+.toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);background:#333d4b;color:#fff;padding:8px 18px;border-radius:20px;font-size:12px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+@media(max-width:480px){
+  .fg{min-width:calc(50% - 5px)}
+  .photo-thumb{width:65px;height:65px}
+  .btn{padding:8px 11px;font-size:12px}
+}
 </style>
 </head>
 <body>
-<header><h3 style="margin:0">MED EER v31</h3></header>
-<div id="main">
-<button id="btnNewWork">Nuevo trabajo</button>
-<button id="btnSaveFile">Guardar trabajo</button>
-<button type="button" id="btnLoadFile">Cargar trabajo</button>
-<input id="fileLoad" type="file" accept=".json,application/json" style="display:none">
-<br>
-<input id="name" placeholder="Emplazamiento">
-<input id="date" placeholder="Fecha">
-<input id="equipo" placeholder="Equipo">
-<input id="tecnico" placeholder="Técnico">
-<select id="unidad">
-<option value="dBµV/m">dBµV/m</option>
-<option value="V/m" selected>V/m</option>
-<option value="W/m2">W/m²</option>
-<option value="%NR">% Nivel de referencia</option>
-</select>
-<h4>Observaciones</h4>
-<textarea id="observaciones" placeholder="Observaciones del trabajo"></textarea>
-<br>
-<input id="lat" placeholder="Lat decimal">
-<input id="lng" placeholder="Lng decimal">
-<button id="btnSet">Marcar estación</button>
-<button id="btnGPS">Usar mi ubicación</button>
-<button id="btnMove">Mover centro</button>
-<br>
-<span class="small">Foto de la estación (opcional):</span>
-<input type="file" id="stationPhotoInput" accept="image/*">
-<img id="stationPhotoPreview" class="thumb" style="display:none">
-<br>
-<input id="coordText" placeholder='Pega aquí coordenadas DMS o decimal. Ej: 43°20&#39;04.89"N 8°19&#39;58.05"W' style="width:calc(100% - 16px)">
-<button id="btnParseCoords">Cargar coordenadas pegadas</button>
-<div id="coordsDMS"></div>
-<div id="status"></div>
-<div id="map"></div>
-<h4>Sectores</h4>
-<input id="angle" placeholder="Ángulo">
-<button id="btnAddSector">Añadir</button>
-<br>
-<input id="sectorText" placeholder="Pega orientaciones. Ej: 35/230/335" style="width:calc(100% - 16px)">
-<button id="btnParseSectors">Cargar sectores pegados</button>
-<ul id="sectorList"></ul>
-<h4>Puntos</h4>
-<table>
-<thead><tr><th>P</th><th>Hora</th><th>Valor</th><th>E.S.</th><th>Tipo E.S.</th><th>Dist</th><th>Ori</th><th>Foto</th><th>X</th></tr></thead>
-<tbody id="tbody"></tbody>
-</table>
-<h4>Captura del área de medidas (100 m)</h4>
-<button id="btnCaptureMap">Capturar croquis/mapa</button>
-<input type="file" id="imgInput" accept="image/*">
-<div class="small">Si prefieres la imagen satélite exacta, puedes subir una captura de pantalla con el botón superior. Si no, se generará el croquis de 100 m automáticamente.</div>
-<img id="preview">
-<br>
-<button id="btnPDF" style="font-weight:bold;padding:10px 16px;margin-top:10px">Exportar PDF</button>
+
+<div class="app-header">
+  <div class="hdr-left">
+    <h1>MED EER v31 <span class="offline-dot" id="offline-dot"></span></h1>
+    <p>IGTEL · Medidas Radioeléctricas EER/PSC</p>
+  </div>
+  <div id="save-pill" class="save-pill">Iniciando…</div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<div class="container">
+
+<div class="section">
+  <div class="sec-hdr open" onclick="toggleSec(this)">
+    <h2>📋 Datos Generales</h2><span class="arr">▼</span>
+  </div>
+  <div class="sec-body open">
+    <div class="row">
+      <div class="fg"><label>Empresa / Firma</label><input id="empresa" type="text" placeholder="Nombre de la empresa"/></div>
+      <div class="fg"><label>Técnico responsable</label><input id="tecnico" type="text" placeholder="Nombre del técnico"/></div>
+    </div>
+    <div class="row">
+      <div class="fg"><label>Fecha de medida</label><input id="fecha" type="date"/></div>
+      <div class="fg"><label>Referencia EER</label><input id="referencia" type="text" placeholder="EER-XXXX-XXXX"/></div>
+    </div>
+    <div class="row">
+      <div class="fg full"><label>Expediente / Nº Licencia / Proyecto</label><input id="expediente" type="text" placeholder="Número de expediente administrativo"/></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-hdr" onclick="toggleSec(this)">
+    <h2>📍 Emplazamiento</h2><span class="arr">▼</span>
+  </div>
+  <div class="sec-body">
+    <div class="row">
+      <div class="fg full"><label>Nombre del Emplazamiento *</label><input id="nombre_emp" type="text" placeholder="Identificador único del emplazamiento" oninput="regenerateCroquis()"/></div>
+    </div>
+    <div class="row">
+      <div class="fg"><label>Titular / Operador</label><input id="titular" type="text" placeholder="Operador titular"/></div>
+      <div class="fg"><label>Tipo de Emplazamiento</label>
+        <select id="tipo_emp">
+          <option value="">Seleccionar…</option>
+          <option>Mástil</option>
+          <option>Torre autoportante</option>
+          <option>Edificio — azotea</option>
+          <option>Edificio — fachada</option>
+          <option>Farola / Poste</option>
+          <option>Instalación industrial</option>
+          <option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="fg full"><label>Dirección postal</label><input id="direccion" type="text" placeholder="Calle, número…"/></div>
+    </div>
+    <div class="row">
+      <div class="fg"><label>Municipio</label><input id="municipio" type="text"/></div>
+      <div class="fg"><label>Provincia</label><input id="provincia" type="text"/></div>
+    </div>
+    <div class="row">
+      <div class="fg"><label>Latitud (°N)</label><input id="latitud" type="text" placeholder="42.123456" inputmode="decimal" onchange="refreshMapMarker()"/></div>
+      <div class="fg"><label>Longitud (°)</label><input id="longitud" type="text" placeholder="-8.123456" inputmode="decimal" onchange="refreshMapMarker()"/></div>
+      <div class="fg"><label>Altitud (m s.n.m.)</label><input id="altitud" type="text" placeholder="150" inputmode="decimal"/></div>
+    </div>
+    <div style="text-align:right;margin-bottom:8px">
+      <button class="btn btn-gps" onclick="getGPS()">📡 Obtener GPS</button>
+    </div>
+    <div class="row">
+      <div class="fg full"><label>Descripción del emplazamiento</label>
+        <textarea id="desc_emp" rows="3" placeholder="Descripción del acceso, entorno, características relevantes…"></textarea>
+      </div>
+    </div>
+
+    <label style="font-size:10px;color:#5a6375;font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-top:6px">Mapa de Localización</label>
+    <div id="leaflet-map"></div>
+    <div class="map-btns">
+      <button class="btn btn-save" style="font-size:11px" onclick="centerMap()">🎯 Centrar mapa</button>
+      <button class="btn btn-purple" style="font-size:11px" onclick="captureMap()">📸 Capturar mapa para PDF</button>
+    </div>
+    <p id="map-cap-ok">✅ Mapa capturado para PDF</p>
+    <p style="font-size:10px;color:#8a94a6;margin-top:4px">Si la captura falla (tiles externos), pulsa el botón y luego haz una captura de pantalla manual.</p>
+
+    <div class="photo-zone">
+      <span class="zone-lbl">📷 Fotos del Emplazamiento</span>
+      <div class="photo-grid" id="pg-emplazamiento"></div>
+      <div class="photo-count" id="pc-emplazamiento">0 / 15</div>
+      <label class="add-ph-lbl">➕ Añadir foto <input type="file" accept="image/*" multiple onchange="addPhotos('emplazamiento',this)"/></label>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-hdr" onclick="toggleSec(this)">
+    <h2>🗺️ Croquis 100 m</h2><span class="arr">▼</span>
+  </div>
+  <div class="sec-body">
+    <p style="font-size:11px;color:#666;margin-bottom:8px">Generado automáticamente a partir de los sectores. Pulsa "Regenerar" tras modificar azimuths.</p>
+    <button class="btn btn-save" onclick="generateDiagramCanvas()" style="font-size:12px">🔄 Regenerar croquis</button>
+    <canvas id="croquis-canvas" width="420" height="420"></canvas>
+    <div class="map-btns" style="margin-top:8px">
+      <button class="btn" style="background:#27ae60;color:#fff;font-size:11px" onclick="downloadCroquis()">⬇️ Descargar imagen</button>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-hdr" onclick="toggleSec(this)">
+    <h2>📡 Sectores / Antenas <span class="badge" id="badge-sector">0</span></h2><span class="arr">▼</span>
+  </div>
+  <div class="sec-body">
+    <div id="cont-sectores"></div>
+    <button class="add-btn" onclick="addSector()">➕ Añadir Sector</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-hdr" onclick="toggleSec(this)">
+    <h2>📊 Puntos de Medida EER/PSC <span class="badge" id="badge-punto">0</span></h2><span class="arr">▼</span>
+  </div>
+  <div class="sec-body">
+    <div id="cont-puntos"></div>
+    <button class="add-btn" onclick="addPunto()">➕ Añadir Punto</button>
+  </div>
+</div>
+
+<div class="section">
+  <div class="sec-hdr" onclick="toggleSec(this)">
+    <h2>📝 Conclusiones y Resultado</h2><span class="arr">▼</span>
+  </div>
+  <div class="sec-body">
+    <div class="row">
+      <div class="fg full"><label>Conclusiones / Observaciones finales</label>
+        <textarea id="observaciones" rows="5" placeholder="Resumen técnico del estudio EER/PSC, condicionantes, recomendaciones…"></textarea>
+      </div>
+    </div>
+    <div class="row">
+      <div class="fg"><label>Resultado Global</label>
+        <select id="resultado_global" onchange="updateResBlock()">
+          <option value="">Pendiente…</option>
+          <option value="CUMPLE">✅ CUMPLE</option>
+          <option value="NO_CUMPLE">❌ NO CUMPLE</option>
+          <option value="CONDICIONADO">⚠️ CONDICIONADO</option>
+        </select>
+      </div>
+      <div class="fg"><label>Fecha próxima revisión</label><input id="prox_revision" type="date"/></div>
+    </div>
+    <div id="res-block" style="display:none"></div>
+
+    <div class="photo-zone">
+      <span class="zone-lbl">📷 Fotos adicionales / Anexos</span>
+      <div class="photo-grid" id="pg-extra"></div>
+      <div class="photo-count" id="pc-extra">0 / 15</div>
+      <label class="add-ph-lbl">➕ Añadir foto <input type="file" accept="image/*" multiple onchange="addPhotos('extra',this)"/></label>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="action-bar">
+  <button class="btn btn-save" onclick="saveData()">💾 Guardar</button>
+  <button class="btn btn-pdf" onclick="exportPDF()">📄 PDF</button>
+  <button class="btn btn-clear" onclick="clearAll()">🗑️ Limpiar</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
 <script>
-const el=id=>document.getElementById(id), STORAGE_KEY="medEER_v31";
-let map=L.map('map').setView([40.4,-3.7],17);
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri',crossOrigin:true}).addTo(map);
-let station=null, stationPhoto='', measures=[], sectors=[], layers=[], moveMode=false;
-const sensitiveOptions=[{value:'',label:'-'},{value:'PP',label:'PP'},{value:'RA',label:'RA'},{value:'ES',label:'ES'},{value:'HS',label:'HS'}];
+'use strict';
+const DB_NAME    = 'MED_EER_v31';
+const DB_VER     = 1;
+const MAX_PHOTOS = 15;
+const IMG_MAX_W  = 1600;
+const IMG_Q      = 0.72;
 
-function setStatus(msg){el('status').textContent=msg||''}
-function toDMS(coord,isLat){const dir=coord>=0?(isLat?'N':'E'):(isLat?'S':'W');const abs=Math.abs(coord);const deg=Math.floor(abs);const minFloat=(abs-deg)*60;const min=Math.floor(minFloat);const sec=((minFloat-min)*60).toFixed(2);return `${deg}° ${min}' ${sec}" ${dir}`;}
-function updateDMS(){el('coordsDMS').innerHTML=station?`Lat: ${toDMS(station.lat,true)}<br>Lng: ${toDMS(station.lng,false)}`:''}
-function clearMap(){layers.forEach(l=>{try{map.removeLayer(l)}catch(e){}});layers=[]}
-function bearing(lat1,lon1,lat2,lon2){let y=Math.sin((lon2-lon1)*Math.PI/180)*Math.cos(lat2*Math.PI/180);let x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos((lon2-lon1)*Math.PI/180);return Math.round((Math.atan2(y,x)*180/Math.PI+360)%360)}
-function dest(lat,lng,d,a){let R=6371000, br=a*Math.PI/180, lat1=lat*Math.PI/180, lon1=lng*Math.PI/180;let lat2=Math.asin(Math.sin(lat1)*Math.cos(d/R)+Math.cos(lat1)*Math.sin(d/R)*Math.cos(br));let lon2=lon1+Math.atan2(Math.sin(br)*Math.sin(d/R)*Math.cos(lat1),Math.cos(d/R)-Math.sin(lat1)*Math.sin(lat2));return {lat:lat2*180/Math.PI,lng:lon2*180/Math.PI};}
+const LIMITES = {
+  '700':33.4,'800':35.6,'900':41.3,'1800':58.3,
+  '2100':61.0,'2600':67.8,'3500':78.8,'5800':100.0,'Otro':null
+};
 
-function redraw(){
-  clearMap();
-  if(!station){updateDMS();return;}
-  layers.push(L.circleMarker([station.lat,station.lng],{radius:8,color:'#1f4f9c',fillColor:'#ffffff',fillOpacity:1,weight:3}).addTo(map));
-  layers.push(L.circle([station.lat,station.lng],{radius:100,color:'blue',fillOpacity:0.08,weight:3}).addTo(map));
-  sectors.forEach((s,i)=>{const end=dest(station.lat,station.lng,100,s.angle);layers.push(L.polyline([[station.lat,station.lng],[end.lat,end.lng]],{color:'red',weight:3}).addTo(map));layers.push(L.marker([end.lat,end.lng],{zIndexOffset:200,icon:L.divIcon({className:'',html:`<div class="sector-label">S${i+1} - ${s.angle}°</div>`,iconSize:[92,20],iconAnchor:[0,10]})}).addTo(map));});
-  measures.forEach((p,i)=>{layers.push(L.circleMarker([p.lat,p.lng],{radius:6,color:'#0066cc',fillColor:'#4da3ff',fillOpacity:1,weight:2}).addTo(map));layers.push(L.marker([p.lat,p.lng],{zIndexOffset:1000,icon:L.divIcon({className:'',html:`<div class="point-label">P${i+1}</div>`,iconSize:[36,20],iconAnchor:[-8,18]})}).addTo(map));});
-  updateDMS();
+let db          = null;
+let leafletMap  = null;
+let mapMarker   = null;
+let mapCapture  = null;
+let saveTimer   = null;
+
+function initDB(){
+  return new Promise((res,rej)=>{
+    const r = indexedDB.open(DB_NAME, DB_VER);
+    r.onupgradeneeded = e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('datos')) d.createObjectStore('datos',{keyPath:'key'});
+      if(!d.objectStoreNames.contains('fotos')) d.createObjectStore('fotos',{keyPath:'id'});
+    };
+    r.onsuccess = e=>{ db=e.target.result; res(); };
+    r.onerror   = e=>rej(e);
+  });
+}
+function idbPut(store,obj){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(store,'readwrite');
+    tx.objectStore(store).put(obj);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
+}
+function idbGet(store,key){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(store,'readonly');
+    const r=tx.objectStore(store).get(key);
+    r.onsuccess=e=>res(e.target.result); r.onerror=rej;
+  });
+}
+function idbDel(store,key){
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(store,'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete=res; tx.onerror=rej;
+  });
 }
 
-function getWorkData(){return {version:31,savedAt:new Date().toISOString(),fields:{name:el('name').value||'',date:el('date').value||'',equipo:el('equipo').value||'',tecnico:el('tecnico').value||'',unidad:el('unidad')?el('unidad').value||'V/m':'V/m',observaciones:el('observaciones').value||'',lat:el('lat').value||'',lng:el('lng').value||'',coordText:el('coordText')?el('coordText').value||'':'',sectorText:el('sectorText')?el('sectorText').value||'':''},station,stationPhoto,measures,sectors,preview:(el('preview').src&&el('preview').style.display!=='none')?el('preview').src:''};}
-function applyWorkData(data){
-  const fields=data.fields||{};
-  el('name').value=fields.name||''; el('date').value=fields.date||''; el('equipo').value=fields.equipo||''; el('tecnico').value=fields.tecnico||''; if(el('unidad')) el('unidad').value=fields.unidad||'V/m'; el('observaciones').value=fields.observaciones||''; el('lat').value=fields.lat||''; el('lng').value=fields.lng||''; if(el('coordText')) el('coordText').value=fields.coordText||''; if(el('sectorText')) el('sectorText').value=fields.sectorText||'';
-  station=data.station||null;
-  stationPhoto=data.stationPhoto||'';
-  if(stationPhoto){el('stationPhotoPreview').src=stationPhoto;el('stationPhotoPreview').style.display='inline-block';} else {el('stationPhotoPreview').src='';el('stationPhotoPreview').style.display='none';}
-  measures=Array.isArray(data.measures)?data.measures.map(m=>({...m,hora:m.hora||'',valor:m.valor||'',es:m.es||'No',tipoEs:m.tipoEs||'',photo:m.photo||''})):[];
-  sectors=Array.isArray(data.sectors)?data.sectors.map(s=>typeof s==='number'?{angle:s,photo:''}:{angle:s.angle,photo:s.photo||''}):[];
-  if(data.preview){el('preview').src=data.preview;el('preview').style.display='block';} else {el('preview').src='';el('preview').style.display='none';}
-  renderSectors(); renderTable(); map.setView(station?[station.lat,station.lng]:[40.4,-3.7], station?18:17); redraw();
+function compressImage(file){
+  return new Promise(res=>{
+    const rd=new FileReader();
+    rd.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        let w=img.width,h=img.height;
+        if(w>IMG_MAX_W){h=Math.round(h*IMG_MAX_W/w);w=IMG_MAX_W;}
+        const c=document.createElement('canvas');
+        c.width=w; c.height=h;
+        c.getContext('2d').drawImage(img,0,0,w,h);
+        res(c.toDataURL('image/jpeg',IMG_Q));
+      };
+      img.src=e.target.result;
+    };
+    rd.readAsDataURL(file);
+  });
 }
-function saveAuto(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(getWorkData()));}catch(e){console.error(e)}}
-function loadAuto(){const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return; try{applyWorkData(JSON.parse(raw));}catch(e){console.error(e)}}
-function suggestFileName(){const base=(el('name').value||'trabajo').trim().replace(/[\\/:*?"<>|]+/g,'_'); return `${base}.json`;}
-function saveWorkToFile(){try{const blob=new Blob([JSON.stringify(getWorkData(),null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=suggestFileName(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); setStatus('Trabajo guardado en archivo.');}catch(e){console.error(e); alert('No se pudo guardar el archivo.');}}
-function loadWorkFromFile(file){const reader=new FileReader(); reader.onload=ev=>{try{applyWorkData(JSON.parse(ev.target.result)); saveAuto(); setStatus('Trabajo cargado correctamente.');}catch(e){console.error(e); alert('El archivo no es válido.');}}; reader.readAsText(file,'utf-8');}
 
-function parseCoordinateText(input){
-  const txt = (input || '').trim();
-  if (!txt) return null;
-  let m = txt.match(/(\d{1,2})°\s*(\d{1,2})'\s*(\d{1,2}(?:\.\d+)?)"\s*([NS])[\s,;]+(\d{1,3})°\s*(\d{1,2})'\s*(\d{1,2}(?:\.\d+)?)"\s*([EW])/i);
-  if (m) {
-    let lat = parseFloat(m[1]) + parseFloat(m[2])/60 + parseFloat(m[3])/3600;
-    let lng = parseFloat(m[5]) + parseFloat(m[6])/60 + parseFloat(m[7])/3600;
-    if (m[4].toUpperCase() === 'S') lat *= -1;
-    if (m[8].toUpperCase() === 'W') lng *= -1;
-    return {lat, lng};
+async function addPhotos(sectionId, input){
+  const files=Array.from(input.files);
+  if(!files.length) return;
+  const rec=await idbGet('fotos',sectionId);
+  const current=rec?rec.data:[];
+  if(current.length>=MAX_PHOTOS){toast(`Máximo ${MAX_PHOTOS} fotos por sección`);input.value='';return;}
+  const remaining=MAX_PHOTOS-current.length;
+  const toProcess=files.slice(0,remaining);
+  toast(`Comprimiendo ${toProcess.length} foto(s)…`);
+  for(const f of toProcess){
+    const b64=await compressImage(f);
+    current.push(b64);
   }
-  const nums = txt.match(/-?\d+(?:\.\d+)?/g);
-  if (nums && nums.length >= 2 && !/[NSEW°'"]/.test(txt)) {
-    const lat = parseFloat(nums[0]), lng = parseFloat(nums[1]);
-    if (!Number.isNaN(lat) && !Number.isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return {lat, lng};
+  await idbPut('fotos',{id:sectionId,data:current});
+  renderPhotos(sectionId,current);
+  input.value='';
+  if(files.length>remaining) toast(`Solo se añadieron ${remaining} foto(s) (límite: ${MAX_PHOTOS})`);
+  else toast(`${toProcess.length} foto(s) añadida(s) ✅`,2000);
+  scheduleSave();
+}
+
+async function removePhoto(sectionId,idx){
+  const rec=await idbGet('fotos',sectionId);
+  if(!rec) return;
+  rec.data.splice(idx,1);
+  await idbPut('fotos',{id:sectionId,data:rec.data});
+  renderPhotos(sectionId,rec.data);
+  scheduleSave();
+}
+
+function renderPhotos(sectionId,photos){
+  const grid=document.getElementById('pg-'+sectionId);
+  const cnt =document.getElementById('pc-'+sectionId);
+  if(!grid) return;
+  grid.innerHTML='';
+  photos.forEach((src,i)=>{
+    const d=document.createElement('div');
+    d.className='photo-thumb';
+    d.innerHTML=`<img src="${src}" loading="lazy" alt="Foto ${i+1}">
+      <button class="del-ph" onclick="removePhoto('${sectionId}',${i})" title="Eliminar">✕</button>`;
+    grid.appendChild(d);
+  });
+  if(cnt) cnt.textContent=`${photos.length} / ${MAX_PHOTOS}`;
+}
+
+async function loadPhotos(sectionId){
+  const rec=await idbGet('fotos',sectionId);
+  if(rec&&rec.data) renderPhotos(sectionId,rec.data);
+}
+
+function toggleSec(hdr){
+  hdr.classList.toggle('open');
+  hdr.nextElementSibling.classList.toggle('open');
+}
+
+function initMap(){
+  leafletMap=L.map('leaflet-map').setView([42.0,-7.5],8);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap',maxZoom:19
+  }).addTo(leafletMap);
+  leafletMap.on('click',e=>{
+    document.getElementById('latitud').value=e.latlng.lat.toFixed(6);
+    document.getElementById('longitud').value=e.latlng.lng.toFixed(6);
+    placeMarker(e.latlng.lat,e.latlng.lng);
+    scheduleSave();
+  });
+}
+
+function placeMarker(lat,lon){
+  const ll=[parseFloat(lat),parseFloat(lon)];
+  if(isNaN(ll[0])||isNaN(ll[1])) return;
+  if(mapMarker) leafletMap.removeLayer(mapMarker);
+  mapMarker=L.marker(ll).addTo(leafletMap);
+  leafletMap.setView(ll,16);
+}
+
+function refreshMapMarker(){
+  const lat=document.getElementById('latitud').value;
+  const lon=document.getElementById('longitud').value;
+  if(lat&&lon) placeMarker(lat,lon);
+}
+
+function centerMap(){
+  const lat=document.getElementById('latitud').value;
+  const lon=document.getElementById('longitud').value;
+  if(lat&&lon) placeMarker(lat,lon);
+  else toast('Introduce coordenadas primero');
+}
+
+function getGPS(){
+  if(!navigator.geolocation){toast('GPS no disponible en este dispositivo');return;}
+  toast('Obteniendo posición GPS…');
+  navigator.geolocation.getCurrentPosition(p=>{
+    document.getElementById('latitud').value=p.coords.latitude.toFixed(6);
+    document.getElementById('longitud').value=p.coords.longitude.toFixed(6);
+    if(p.coords.altitude) document.getElementById('altitud').value=Math.round(p.coords.altitude);
+    placeMarker(p.coords.latitude,p.coords.longitude);
+    toast('GPS obtenido ✅',2500);
+    scheduleSave();
+  },err=>toast('Error GPS: '+err.message),{enableHighAccuracy:true,timeout:15000});
+}
+
+async function captureMap(){
+  if(!window.html2canvas){toast('html2canvas no disponible');return;}
+  toast('Capturando mapa…');
+  try{
+    const c=await html2canvas(document.getElementById('leaflet-map'),{useCORS:true,allowTaint:true,logging:false});
+    mapCapture=c.toDataURL('image/jpeg',0.85);
+    document.getElementById('map-cap-ok').style.display='block';
+    toast('Mapa capturado ✅',2500);
+    scheduleSave();
+  }catch(e){
+    toast('No se pudo capturar (tiles externos). Realiza captura manual de pantalla.');
   }
-  return null;
 }
-
-function normalizeAngle(n){let a=n%360; if(a<0)a+=360; return Math.round(a*100)/100;}
-
-function parseSectorText(input){
-  if (!input) return [];
-  const nums = input.match(/\d+(?:\.\d+)?/g);
-  if (!nums) return [];
-  const vals = nums.map(n => parseFloat(n)).filter(n => !Number.isNaN(n)).map(normalizeAngle);
-  return [...new Set(vals)].sort((a,b)=>a-b);
-}
-
-function readFileAsDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader(); r.onload=e=>resolve(e.target.result); r.onerror=reject; r.readAsDataURL(file);});}
-
-function setStationFromInputs(){const lat=parseFloat(el('lat').value), lng=parseFloat(el('lng').value); if(Number.isNaN(lat)||Number.isNaN(lng)) return alert('Coords inválidas'); station={lat,lng}; map.setView([lat,lng],18); redraw(); saveAuto();}
-el('btnSet').addEventListener('click',setStationFromInputs);
-
-if (el('btnParseCoords')) {
-  el('btnParseCoords').addEventListener('click',()=>{
-    const parsed = parseCoordinateText(el('coordText').value);
-    if (!parsed) return alert('No se pudieron interpretar las coordenadas.');
-    el('lat').value = parsed.lat.toFixed(6);
-    el('lng').value = parsed.lng.toFixed(6);
-    station = parsed;
-    map.setView([parsed.lat, parsed.lng], 18);
-    redraw();
-    saveAuto();
-    setStatus('Coordenadas cargadas correctamente.');
-  });
-}
-
-if (el('btnParseSectors')) {
-  el('btnParseSectors').addEventListener('click',()=>{
-    const parsed = parseSectorText(el('sectorText').value);
-    if (!parsed.length) return alert('No se pudieron interpretar las orientaciones.');
-    sectors = parsed.map(a=>({angle:a,photo:''}));
-    renderSectors();
-    redraw();
-    saveAuto();
-    setStatus('Sectores cargados correctamente.');
-  });
-}
-el('btnGPS').addEventListener('click',()=>{setStatus('Obteniendo ubicación...'); if(!window.isSecureContext){setStatus('La ubicación requiere HTTPS.'); return alert('La ubicación requiere HTTPS.');} if(!navigator.geolocation){setStatus('Este navegador no soporta geolocalización.'); return alert('Este navegador no soporta geolocalización.');} navigator.geolocation.getCurrentPosition(pos=>{const lat=pos.coords.latitude,lng=pos.coords.longitude; el('lat').value=lat.toFixed(6); el('lng').value=lng.toFixed(6); station={lat,lng}; map.setView([lat,lng],18); redraw(); saveAuto(); setStatus('Ubicación obtenida correctamente.');},err=>{let msg=err.message||'No se pudo obtener la ubicación.'; if(err.code===1)msg='Permiso denegado'; if(err.code===2)msg='Posición no disponible'; if(err.code===3)msg='Tiempo de espera agotado'; setStatus('Error GPS: '+msg); alert('GPS: '+msg);},{enableHighAccuracy:true,timeout:15000,maximumAge:0});});
-el('btnMove').addEventListener('click',()=>{moveMode=true; alert('Toca en mapa para mover centro');});
-map.on('click',e=>{if(moveMode){station={lat:e.latlng.lat,lng:e.latlng.lng}; el('lat').value=station.lat.toFixed(6); el('lng').value=station.lng.toFixed(6); moveMode=false; redraw(); saveAuto(); return;} if(!station) return; let dist=Math.round(map.distance([station.lat,station.lng],e.latlng)); if(dist>100) return; let ori=bearing(station.lat,station.lng,e.latlng.lat,e.latlng.lng); measures.push({lat:e.latlng.lat,lng:e.latlng.lng,dist,ori,hora:'',valor:'',es:'No',tipoEs:'',photo:''}); renderTable(); redraw(); saveAuto();});
-
-el('btnAddSector').addEventListener('click',()=>{let a=parseFloat(el('angle').value); if(Number.isNaN(a)) return; a=normalizeAngle(a); sectors.push({angle:a,photo:''}); sectors.sort((x,y)=>x.angle-y.angle); el('angle').value=''; renderSectors(); redraw(); saveAuto();});
-function removeSector(i){sectors.splice(i,1); sectors.sort((x,y)=>x.angle-y.angle); renderSectors(); redraw(); saveAuto();} window.removeSector=removeSector;
-function renderSectors(){
-  const ul=el('sectorList'); ul.innerHTML='';
-  sectors.forEach((s,i)=>{
-    let li=document.createElement('li');
-    li.innerHTML=`S${i+1} - ${s.angle}° <input type="file" accept="image/*" class="photoInput sectorPhotoInput" data-i="${i}">${s.photo?`<img class="thumb" src="${s.photo}">`:''} <button onclick="removeSector(${i})">X</button>`;
-    ul.appendChild(li);
-  });
-  ul.querySelectorAll('.sectorPhotoInput').forEach(inp=>{
-    inp.addEventListener('change', async e=>{
-      const i=parseInt(e.target.dataset.i,10); const file=e.target.files[0]; if(!file) return;
-      sectors[i].photo=await readFileAsDataURL(file); renderSectors(); saveAuto();
-    });
-  });
-}
-function deleteMeasure(i){measures.splice(i,1); renderTable(); redraw(); saveAuto();} window.deleteMeasure=deleteMeasure;
-function buildTipoOptions(selected){return sensitiveOptions.map(opt=>`<option value="${opt.value}" ${selected===opt.value?'selected':''}>${opt.label}</option>`).join('');}
-function renderTable(){
-  const tbody=el('tbody'); tbody.innerHTML='';
-  measures.forEach((m,i)=>{let tr=document.createElement('tr'); tr.innerHTML=`<td>P${i+1}</td><td><input value="${m.hora||''}" data-i="${i}" data-f="hora"></td><td><input value="${m.valor||''}" data-i="${i}" data-f="valor"></td><td><select data-i="${i}" data-f="es"><option value="No" ${m.es==='No'?'selected':''}>No</option><option value="Sí" ${m.es==='Sí'?'selected':''}>Sí</option></select></td><td><select data-i="${i}" data-f="tipoEs" ${m.es==='Sí'?'':'disabled'}>${buildTipoOptions(m.tipoEs||'')}</select></td><td>${m.dist}</td><td>${m.ori}</td><td><input type="file" accept="image/*" class="photoInput pointPhotoInput" data-i="${i}">${m.photo?`<br><img class="thumb" src="${m.photo}">`:''}</td><td><button class="danger" onclick="deleteMeasure(${i})">X</button></td>`; tbody.appendChild(tr);});
-  tbody.querySelectorAll('input:not(.photoInput), select').forEach(ctrl=>{ctrl.addEventListener('change',e=>{const i=parseInt(e.target.dataset.i,10), f=e.target.dataset.f; measures[i][f]=e.target.value; if(f==='es'){if(e.target.value==='No') measures[i].tipoEs=''; renderTable();} saveAuto();});});
-  tbody.querySelectorAll('.pointPhotoInput').forEach(inp=>{
-    inp.addEventListener('change', async e=>{
-      const i=parseInt(e.target.dataset.i,10); const file=e.target.files[0]; if(!file) return;
-      measures[i].photo=await readFileAsDataURL(file); renderTable(); saveAuto();
-    });
-  });
-}
-el('stationPhotoInput').addEventListener('change', async e=>{
-  const file=e.target.files[0]; if(!file) return;
-  stationPhoto=await readFileAsDataURL(file);
-  el('stationPhotoPreview').src=stationPhoto; el('stationPhotoPreview').style.display='inline-block';
-  saveAuto();
-});
-el('imgInput').addEventListener('change',e=>{let file=e.target.files[0]; if(!file) return; let r=new FileReader(); r.onload=ev=>{el('preview').src=ev.target.result; el('preview').style.display='block'; saveAuto();}; r.readAsDataURL(file);});
 
 function generateDiagramCanvas(){
-  const canvas=document.createElement('canvas');
-  canvas.width=900; canvas.height=600;
+  const canvas=document.getElementById('croquis-canvas');
+  if(!canvas) return;
   const ctx=canvas.getContext('2d');
-  
-  // Fondo
-  ctx.fillStyle='#f4f6f8';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  
-  // Rejilla de fondo
-  ctx.strokeStyle='#e2e8f0'; ctx.lineWidth=1;
-  for(let x=0; x<canvas.width; x+=30){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
-  for(let y=0; y<canvas.height; y+=30){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
-  
-  const cx=canvas.width/2, cy=canvas.height/2;
-  const scale=220/100; // 100 metros = 220 píxeles
-  
-  // Círculo 50m
-  ctx.beginPath(); ctx.arc(cx,cy,50*scale,0,2*Math.PI);
-  ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle='#64748b'; ctx.font='12px Arial'; ctx.fillText('r = 50 m',cx+50*scale+4,cy-4);
-  
-  // Círculo 100m
-  ctx.beginPath(); ctx.arc(cx,cy,100*scale,0,2*Math.PI);
-  ctx.fillStyle='rgba(37,99,235,0.06)'; ctx.fill();
-  ctx.strokeStyle='#2563eb'; ctx.lineWidth=2.5; ctx.stroke();
-  ctx.fillStyle='#1d4ed8'; ctx.font='bold 13px Arial'; ctx.fillText('Radio 100 m',cx+100*scale+6,cy-4);
-  
-  // Rosa de los vientos / Norte
-  ctx.fillStyle='#0f172a'; ctx.font='bold 14px Arial'; ctx.fillText('N',cx-5,cy-100*scale-16);
-  ctx.beginPath(); ctx.moveTo(cx,cy-100*scale-12); ctx.lineTo(cx-6,cy-100*scale-2); ctx.lineTo(cx+6,cy-100*scale-2); ctx.fill();
-  
-  // Sectores
-  sectors.forEach((s,idx)=>{
-    const rad=(s.angle-90)*Math.PI/180;
-    const ex=cx+Math.cos(rad)*100*scale;
-    const ey=cy+Math.sin(rad)*100*scale;
-    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(ex,ey);
-    ctx.strokeStyle='#dc2626'; ctx.lineWidth=3; ctx.stroke();
-    ctx.fillStyle='#b91c1c'; ctx.font='bold 12px Arial';
-    ctx.fillText(`S${idx+1} (${s.angle}°)`, ex+(ex>cx?6:-54), ey+(ey>cy?12:-6));
+  const W=canvas.width,H=canvas.height;
+  const cx=W/2,cy=H/2;
+  const pxPer1m=(W/2-32)/100;
+
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff';
+  ctx.fillRect(0,0,W,H);
+
+  [25,50,75,100].forEach(r=>{
+    const px=r*pxPer1m;
+    ctx.beginPath();
+    ctx.arc(cx,cy,px,0,Math.PI*2);
+    ctx.strokeStyle= r===100?'#1a3a5c':'#bbb';
+    ctx.lineWidth  = r===100?2:1;
+    ctx.setLineDash(r===100?[]:[4,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#999';
+    ctx.font='10px Arial';
+    ctx.fillText(r+'m',cx+px+3,cy-3);
   });
-  
-  // Puntos de medida
-  measures.forEach((p,idx)=>{
-    const rad=(p.ori-90)*Math.PI/180;
-    const px=cx+Math.cos(rad)*p.dist*scale;
-    const py=cy+Math.sin(rad)*p.dist*scale;
-    ctx.beginPath(); ctx.arc(px,py,6,0,2*Math.PI);
-    ctx.fillStyle='#0284c7'; ctx.fill();
-    ctx.strokeStyle='#ffffff'; ctx.lineWidth=2; ctx.stroke();
-    ctx.fillStyle='#0369a1'; ctx.font='bold 12px Arial';
-    ctx.fillText(`P${idx+1} (${p.dist}m)`, px+8, py+4);
+
+  ctx.strokeStyle='#e0e0e0';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx,22);ctx.lineTo(cx,H-10);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(10,cy);ctx.lineTo(W-10,cy);ctx.stroke();
+
+  ctx.fillStyle='#c0392b';
+  ctx.font='bold 13px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('N',cx,17);
+  ctx.beginPath();ctx.moveTo(cx,20);ctx.lineTo(cx-5,30);ctx.lineTo(cx+5,30);ctx.closePath();
+  ctx.fill();
+  ctx.textAlign='left';
+
+  const cards=document.querySelectorAll('.sector-card');
+  const colors=['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#1abc9c','#e67e22','#34495e'];
+  cards.forEach((card,idx)=>{
+    const azEl=card.querySelector('.s-azimut');
+    if(!azEl||azEl.value==='') return;
+    const az=parseFloat(azEl.value);
+    const op=(card.querySelector('.s-operador')?.value)||('S'+(idx+1));
+    const col=colors[idx%colors.length];
+    const ang=(az-90)*Math.PI/180;
+    const R=88*pxPer1m;
+    const ex=cx+R*Math.cos(ang);
+    const ey=cy+R*Math.sin(ang);
+    ctx.strokeStyle=col;ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
+    const hl=14,ha=Math.PI/6;
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex-hl*Math.cos(ang-ha),ey-hl*Math.sin(ang-ha));
+    ctx.lineTo(ex-hl*Math.cos(ang+ha),ey-hl*Math.sin(ang+ha));
+    ctx.closePath();ctx.fill();
+    const lx=cx+(R+20)*Math.cos(ang);
+    const ly=cy+(R+20)*Math.sin(ang);
+    ctx.font='bold 10px Arial';ctx.fillStyle=col;ctx.textAlign='center';
+    ctx.fillText(az+'°',lx,ly);
+    ctx.textAlign='left';
   });
-  
-  // Estación central
-  ctx.beginPath(); ctx.arc(cx,cy,8,0,2*Math.PI);
-  ctx.fillStyle='#ffffff'; ctx.fill();
-  ctx.strokeStyle='#1e3a8a'; ctx.lineWidth=3.5; ctx.stroke();
-  ctx.fillStyle='#1e3a8a'; ctx.font='bold 12px Arial';
-  ctx.fillText('Estación',cx+12,cy+4);
-  
-  // Leyenda en pie de mapa
-  ctx.fillStyle='#334155'; ctx.font='11px Arial';
-  ctx.fillText('Croquis del entorno de medidas radioeléctricas (100 m)',16,canvas.height-14);
-  
-  return canvas.toDataURL('image/png');
+
+  ctx.beginPath();ctx.arc(cx,cy,6,0,Math.PI*2);ctx.fillStyle='#1a3a5c';ctx.fill();
+
+  const nom=document.getElementById('nombre_emp')?.value||'Emplazamiento';
+  ctx.fillStyle='#1a3a5c';ctx.font='bold 10px Arial';
+  ctx.fillText('CROQUIS 100 m — '+nom,8,H-8);
 }
 
-el('btnCaptureMap').addEventListener('click',()=>{
-  const dataUrl=generateDiagramCanvas();
-  el('preview').src=dataUrl;
-  el('preview').style.display='block';
-  setStatus('Croquis de medidas generado correctamente.');
-  saveAuto();
-});
+function regenerateCroquis(){ clearTimeout(window._cqTimer); window._cqTimer=setTimeout(generateDiagramCanvas,400); }
 
-['name','date','equipo','tecnico','unidad','lat','lng','observaciones','coordText','sectorText'].forEach(id=>{ if(el(id)) el(id).addEventListener('input',saveAuto); if(el(id)) el(id).addEventListener('change',saveAuto); });
-el('btnNewWork').addEventListener('click',()=>{if(!confirm('¿Borrar trabajo actual?')) return; localStorage.removeItem(STORAGE_KEY); station=null; stationPhoto=''; measures=[]; sectors=[]; moveMode=false; clearMap(); ['name','date','equipo','tecnico','observaciones','lat','lng','angle','coordText','sectorText'].forEach(id=>{ if(el(id)) el(id).value=''; }); if(el('unidad')) el('unidad').value='V/m'; setStatus(''); el('coordsDMS').innerHTML=''; el('preview').src=''; el('preview').style.display='none'; el('stationPhotoPreview').src=''; el('stationPhotoPreview').style.display='none'; renderSectors(); renderTable(); map.setView([40.4,-3.7],17);});
-el('btnSaveFile').addEventListener('click',saveWorkToFile);
-el('btnLoadFile').addEventListener('click',()=>el('fileLoad').click());
-el('fileLoad').addEventListener('change',e=>{const file=e.target.files&&e.target.files[0]; if(!file) return; loadWorkFromFile(file); e.target.value='';});
-
-function getImageFormatFromDataUrl(dataUrl){if(!dataUrl) return 'JPEG'; const lower=dataUrl.toLowerCase(); if(lower.startsWith('data:image/png')) return 'PNG'; if(lower.startsWith('data:image/webp')) return 'WEBP'; return 'JPEG';}
-function splitLegend(pdf,width){pdf.setFontSize(6.5); return pdf.splitTextToSize("Tipo E.S.: PP = parques públicos | RA = residencias de ancianos | ES = colegios o guarderías | HS = hospitales y centros de salud",width);}
-
-function drawTableHeader(pdf,y,margin,x,unidad){
-  pdf.setFontSize(7.5);
-  pdf.text("Punto",x.p,y); pdf.text("Hora",x.hora,y); pdf.text(`Valor (${unidad})`,x.valor,y); pdf.text("E.S.",x.es,y); pdf.text("Tipo",x.tipo,y); pdf.text("Dist",x.dist,y); pdf.text("Ori",x.ori,y);
-  y+=3.2; pdf.line(margin,y,x.right,y); y+=4.0;
-  return y;
+function downloadCroquis(){
+  generateDiagramCanvas();
+  const a=document.createElement('a');
+  a.download='croquis_100m.png';
+  a.href=document.getElementById('croquis-canvas').toDataURL();
+  a.click();
 }
 
-async function addPhotoAnnex(pdf, margin, pageW, pageH){
-  const items=[];
-  if(stationPhoto) items.push({label:'Estación', src:stationPhoto});
-  sectors.forEach((s,i)=>{ if(s.photo) items.push({label:`Sector S${i+1} (${s.angle}°)`, src:s.photo}); });
-  measures.forEach((m,i)=>{ if(m.photo) items.push({label:`Punto P${i+1}`, src:m.photo}); });
-  if(!items.length) return;
-  pdf.addPage();
-  pdf.setFontSize(11); pdf.text("Anexo fotográfico", margin, margin+4);
-  let y = margin+12, col=0;
-  const cellW = (pageW-margin*2-10)/2, cellH=60, gap=10;
-  for(const item of items){
-    const img=new Image();
-    await new Promise(resolve=>{ img.onload=resolve; img.onerror=resolve; img.src=item.src; });
-    if(!img.width) continue;
-    if(y+cellH+6 > pageH-margin){ pdf.addPage(); y=margin+8; col=0; }
-    let ratio=img.width/img.height, w=cellW, h=w/ratio;
-    if(h>cellH){h=cellH; w=h*ratio;}
-    const cx = margin + col*(cellW+gap);
-    pdf.addImage(item.src, getImageFormatFromDataUrl(item.src), cx, y, w, h);
-    pdf.setFontSize(7.5); pdf.text(item.label, cx, y+cellH+4);
-    col++;
-    if(col>1){ col=0; y+=cellH+10; }
+function addSector(data={}){
+  const cont=document.getElementById('cont-sectores');
+  const n=cont.querySelectorAll('.sector-card').length+1;
+  const id=data.id||('s_'+Date.now()+'_'+Math.random().toString(36).slice(2,5));
+  const freqOpts=['700','800','900','1800','2100','2600','3500','5800','Otro']
+    .map(f=>`<option ${data.frecuencia===f?'selected':''}>${f}</option>`).join('');
+
+  const div=document.createElement('div');
+  div.className='card sector-card';
+  div.dataset.id=id;
+  div.innerHTML=`
+  <div class="card-hdr">
+    <h3>📡 Sector ${n}</h3>
+    <button class="del-card" onclick="delSector(this)">✕ Eliminar</button>
+  </div>
+  <div class="row">
+    <div class="fg"><label>Operador</label><input class="s-operador" type="text" value="${esc(data.operador)}" placeholder="Ej: Movistar"/></div>
+    <div class="fg"><label>Sistema Radiante</label><input class="s-sistema" type="text" value="${esc(data.sistema)}" placeholder="Tipo de antena"/></div>
+  </div>
+  <div class="row">
+    <div class="fg"><label>Azimut (°)</label><input class="s-azimut" type="number" min="0" max="359" value="${esc(data.azimut)}" placeholder="0–359" onchange="generateDiagramCanvas()"/></div>
+    <div class="fg"><label>Tilting mecánico (°)</label><input class="s-tilting" type="number" value="${esc(data.tilting)}" placeholder="Ej: 3"/></div>
+    <div class="fg"><label>Altura antena (m)</label><input class="s-altura" type="number" value="${esc(data.altura)}" placeholder="Ej: 25"/></div>
+  </div>
+  <div class="row">
+    <div class="fg"><label>Banda (MHz)</label>
+      <select class="s-frecuencia"><option value="">Seleccionar…</option>${freqOpts}</select>
+    </div>
+    <div class="fg"><label>Potencia EIRP (dBm)</label><input class="s-potencia" type="number" value="${esc(data.potencia)}" placeholder="dBm"/></div>
+    <div class="fg"><label>Ganancia (dBi)</label><input class="s-ganancia" type="number" value="${esc(data.ganancia)}" placeholder="dBi"/></div>
+  </div>
+  <div class="row">
+    <div class="fg full"><label>Observaciones del sector</label>
+      <textarea class="s-obs" rows="2" placeholder="Observaciones…">${esc(data.obs)}</textarea>
+    </div>
+  </div>
+  <div class="photo-zone">
+    <span class="zone-lbl">📷 Fotos del Sector</span>
+    <div class="photo-grid" id="pg-${id}"></div>
+    <div class="photo-count" id="pc-${id}">0 / 15</div>
+    <label class="add-ph-lbl">➕ Añadir foto <input type="file" accept="image/*" multiple onchange="addPhotos('${id}',this)"/></label>
+  </div>`;
+  cont.appendChild(div);
+  updateBadge('sector',cont.querySelectorAll('.sector-card').length);
+  loadPhotos(id);
+}
+
+function delSector(btn){
+  const card=btn.closest('.sector-card');
+  idbDel('fotos',card.dataset.id);
+  card.remove();
+  const cont=document.getElementById('cont-sectores');
+  updateBadge('sector',cont.querySelectorAll('.sector-card').length);
+  generateDiagramCanvas();
+  scheduleSave();
+}
+
+function addPunto(data={}){
+  const cont=document.getElementById('cont-puntos');
+  const n=cont.querySelectorAll('.punto-card').length+1;
+  const id=data.id||('p_'+Date.now()+'_'+Math.random().toString(36).slice(2,5));
+  const meds=data.mediciones||[{freq:'',uv:'',vm:'',lim:'',cumple:''}];
+  const rows=meds.map(m=>buildMedRow(id,m)).join('');
+
+  const div=document.createElement('div');
+  div.className='card punto-card';
+  div.dataset.id=id;
+  div.innerHTML=`
+  <div class="card-hdr">
+    <h3>📊 Punto ${n}</h3>
+    <button class="del-card" onclick="delPunto(this)">✕ Eliminar</button>
+  </div>
+  <div class="row">
+    <div class="fg full"><label>Descripción / Ubicación</label>
+      <input class="p-desc" type="text" value="${esc(data.desc)}" placeholder="Ej: Fachada Norte, planta 3ª"/>
+    </div>
+  </div>
+  <div class="row">
+    <div class="fg"><label>Distancia al foco (m)</label><input class="p-dist" type="number" value="${esc(data.dist)}" placeholder="m"/></div>
+    <div class="fg"><label>Azimut al foco (°)</label><input class="p-az" type="number" value="${esc(data.az)}" placeholder="°"/></div>
+    <div class="fg"><label>Altura de medida (m)</label><input class="p-hm" type="number" value="${esc(data.hm)}" placeholder="m"/></div>
+  </div>
+  <label style="font-size:10px;color:#5a6375;font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-top:6px">Medidas por frecuencia</label>
+  <div class="tbl-wrap">
+    <table class="meas-tbl">
+      <thead><tr>
+        <th>Banda (MHz)</th><th>E (dBµV/m)</th><th>E (V/m)</th>
+        <th>Límite (V/m)</th><th>Cumple</th><th>%Límite</th><th></th>
+      </tr></thead>
+      <tbody id="tb-${id}">${rows}</tbody>
+    </table>
+  </div>
+  <button class="add-row-btn" onclick="addMedRow('${id}')">+ Añadir banda</button>
+  <div class="row" style="margin-top:10px">
+    <div class="fg full"><label>Observaciones del punto</label>
+      <textarea class="p-obs" rows="2" placeholder="Observaciones…">${esc(data.obs)}</textarea>
+    </div>
+  </div>
+  <div class="photo-zone">
+    <span class="zone-lbl">📷 Fotos del Punto</span>
+    <div class="photo-grid" id="pg-${id}"></div>
+    <div class="photo-count" id="pc-${id}">0 / 15</div>
+    <label class="add-ph-lbl">➕ Añadir foto <input type="file" accept="image/*" multiple onchange="addPhotos('${id}',this)"/></label>
+  </div>`;
+  cont.appendChild(div);
+  updateBadge('punto',cont.querySelectorAll('.punto-card').length);
+  loadPhotos(id);
+}
+
+function buildMedRow(puntoId,m={}){
+  const fOpts=['700','800','900','1800','2100','2600','3500','5800','Otro']
+    .map(f=>`<option ${m.freq===f?'selected':''}>${f}</option>`).join('');
+  const cls=m.cumple==='SÍ'?'c-si':m.cumple==='NO'?'c-no':'';
+  const pct=calcPct(m.vm,m.lim);
+  return `<tr>
+    <td><select class="m-f" onchange="autoLimite(this)">${fOpts}</select></td>
+    <td><input class="m-uv" type="number" step="0.1" value="${m.uv||''}" placeholder="dBµV/m" oninput="calcFromUV(this)"/></td>
+    <td><input class="m-vm" type="number" step="0.001" value="${m.vm||''}" placeholder="V/m" oninput="recalcRow(this)"/></td>
+    <td><input class="m-lim" type="number" step="0.1" value="${m.lim||''}" placeholder="V/m" oninput="recalcRow(this)"/></td>
+    <td class="m-cum ${cls}">${m.cumple||'—'}</td>
+    <td class="m-pct">${pct}</td>
+    <td><button onclick="this.closest('tr').remove();scheduleSave()" style="background:#b33;color:#fff;border:none;border-radius:3px;padding:2px 7px;font-size:10px;cursor:pointer">✕</button></td>
+  </tr>`;
+}
+
+function calcPct(vm,lim){
+  const v=parseFloat(vm),l=parseFloat(lim);
+  if(!isNaN(v)&&!isNaN(l)&&l>0) return ((v/l)*100).toFixed(1)+'%';
+  return '—';
+}
+
+function addMedRow(puntoId){
+  const tb=document.getElementById('tb-'+puntoId);
+  const tr=document.createElement('tr');
+  tr.innerHTML=buildMedRow(puntoId,{});
+  tb.appendChild(tr);
+}
+
+function autoLimite(sel){
+  const row=sel.closest('tr');
+  const lim=LIMITES[sel.value];
+  if(lim) row.querySelector('.m-lim').value=lim;
+  recalcRow(row.querySelector('.m-vm'));
+}
+
+function calcFromUV(inp){
+  const row=inp.closest('tr');
+  const dBuVm=parseFloat(inp.value);
+  if(!isNaN(dBuVm)){
+    const vm=Math.pow(10,(dBuVm-120)/20);
+    row.querySelector('.m-vm').value=vm.toFixed(4);
+    recalcRow(row.querySelector('.m-vm'));
   }
 }
 
-el('btnPDF').addEventListener('click', async ()=>{
-  const {jsPDF}=window.jspdf; let pdf=new jsPDF({unit:'mm',format:'a4'});
-  const pageW=pdf.internal.pageSize.getWidth(), pageH=pdf.internal.pageSize.getHeight(), margin=10, usableW=pageW-margin*2;
-  const unidad=el('unidad')?el('unidad').value||'V/m':'V/m';
-  pdf.setFontSize(9); let y=12;
-  pdf.text("Emplazamiento: "+(el('name').value||''),margin,y); y+=7;
-  pdf.text("Fecha: "+(el('date').value||''),margin,y); y+=7;
-  pdf.text("Equipo: "+(el('equipo').value||''),margin,y); y+=7;
-  pdf.text("Tecnico: "+(el('tecnico').value||''),margin,y); y+=7;
-  if(station){pdf.text("Latitud: "+toDMS(station.lat,true),margin,y); y+=6; pdf.text("Longitud: "+toDMS(station.lng,false),margin,y); y+=6;}
-  pdf.setFontSize(7.5);
-  const obsText=(el('observaciones').value||'').trim();
-  const obsLines=obsText?pdf.splitTextToSize(obsText,usableW):[];
-  const obsHeight=obsText?(4+obsLines.length*3.2+2):0;
-  const legendLines=splitLegend(pdf,usableW), legendHeight=legendLines.length*3.0+3;
-  
-  // Si no hay imagen manual ni previa, generar el croquis automáticamente
-  let mapSrc = el('preview').src;
-  if(!mapSrc || el('preview').style.display==='none'){
-    if(station){
-      mapSrc = generateDiagramCanvas();
+function recalcRow(inp){
+  const row=inp.closest('tr');
+  const vm =parseFloat(row.querySelector('.m-vm').value);
+  const lim=parseFloat(row.querySelector('.m-lim').value);
+  const cumEl=row.querySelector('.m-cum');
+  const pctEl=row.querySelector('.m-pct');
+  if(!isNaN(vm)&&!isNaN(lim)&&lim>0){
+    const ok=vm<=lim;
+    cumEl.textContent=ok?'SÍ':'NO';
+    cumEl.className='m-cum '+(ok?'c-si':'c-no');
+    pctEl.textContent=((vm/lim)*100).toFixed(1)+'%';
+  }
+  scheduleSave();
+}
+
+function delPunto(btn){
+  const card=btn.closest('.punto-card');
+  idbDel('fotos',card.dataset.id);
+  card.remove();
+  const cont=document.getElementById('cont-puntos');
+  updateBadge('punto',cont.querySelectorAll('.punto-card').length);
+  scheduleSave();
+}
+
+function updateBadge(type,n){
+  const el=document.getElementById('badge-'+type);
+  if(el) el.textContent=n;
+}
+
+function updateResBlock(){
+  const v=document.getElementById('resultado_global').value;
+  const bl=document.getElementById('res-block');
+  if(!v){bl.style.display='none';return;}
+  const map={CUMPLE:{cls:'res-cumple',txt:'✅ CUMPLE — Niveles dentro de los límites de exposición'},
+             NO_CUMPLE:{cls:'res-no',txt:'❌ NO CUMPLE — Niveles superiores a los límites'},
+             CONDICIONADO:{cls:'res-cond',txt:'⚠️ CONDICIONADO — Cumple con restricciones específicas'}};
+  const m=map[v];
+  bl.className='res-block '+(m?.cls||'');
+  bl.textContent=m?.txt||v;
+  bl.style.display='block';
+}
+
+function scheduleSave(){
+  clearTimeout(saveTimer);
+  setSavePill('busy','✏️ Modificado…');
+  saveTimer=setTimeout(saveData,2200);
+}
+
+function setupAutoSave(){
+  document.addEventListener('input',e=>{
+    if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)&&
+       e.target.type!=='file') scheduleSave();
+  });
+}
+
+function collectData(){
+  const sectores=[];
+  document.querySelectorAll('.sector-card').forEach(c=>{
+    sectores.push({
+      id:c.dataset.id,
+      operador:c.querySelector('.s-operador')?.value||'',
+      sistema :c.querySelector('.s-sistema')?.value||'',
+      azimut  :c.querySelector('.s-azimut')?.value||'',
+      tilting :c.querySelector('.s-tilting')?.value||'',
+      altura  :c.querySelector('.s-altura')?.value||'',
+      frecuencia:c.querySelector('.s-frecuencia')?.value||'',
+      potencia:c.querySelector('.s-potencia')?.value||'',
+      ganancia:c.querySelector('.s-ganancia')?.value||'',
+      obs     :c.querySelector('.s-obs')?.value||''
+    });
+  });
+  const puntos=[];
+  document.querySelectorAll('.punto-card').forEach(c=>{
+    const meds=[];
+    c.querySelectorAll('tbody tr').forEach(tr=>{
+      meds.push({
+        freq:tr.querySelector('.m-f')?.value||'',
+        uv  :tr.querySelector('.m-uv')?.value||'',
+        vm  :tr.querySelector('.m-vm')?.value||'',
+        lim :tr.querySelector('.m-lim')?.value||'',
+        cumple:tr.querySelector('.m-cum')?.textContent||'',
+      });
+    });
+    puntos.push({
+      id:c.dataset.id,
+      desc:c.querySelector('.p-desc')?.value||'',
+      dist:c.querySelector('.p-dist')?.value||'',
+      az  :c.querySelector('.p-az')?.value||'',
+      hm  :c.querySelector('.p-hm')?.value||'',
+      obs :c.querySelector('.p-obs')?.value||'',
+      mediciones:meds
+    });
+  });
+  return {
+    key:'formulario',
+    empresa:gv('empresa'),tecnico:gv('tecnico'),fecha:gv('fecha'),
+    referencia:gv('referencia'),expediente:gv('expediente'),
+    nombre_emp:gv('nombre_emp'),titular:gv('titular'),tipo_emp:gv('tipo_emp'),
+    direccion:gv('direccion'),municipio:gv('municipio'),provincia:gv('provincia'),
+    latitud:gv('latitud'),longitud:gv('longitud'),altitud:gv('altitud'),
+    desc_emp:gv('desc_emp'),observaciones:gv('observaciones'),
+    resultado_global:gv('resultado_global'),prox_revision:gv('prox_revision'),
+    sectores,puntos,mapCapture
+  };
+}
+const gv=id=>{const e=document.getElementById(id);return e?e.value:'';};
+const sv=(id,v)=>{const e=document.getElementById(id);if(e&&v!=null)e.value=v;};
+
+async function saveData(){
+  if(!db) return;
+  try{
+    await idbPut('datos',collectData());
+    setSavePill('ok','✅ Guardado');
+  }catch(e){
+    setSavePill('err','❌ Error guardando');
+    console.error(e);
+  }
+}
+
+async function loadData(){
+  if(!db) return;
+  const d=await idbGet('datos','formulario');
+  if(!d){setSavePill('ok','Sin datos guardados');return;}
+
+  ['empresa','tecnico','fecha','referencia','expediente',
+   'nombre_emp','titular','tipo_emp','direccion','municipio','provincia',
+   'latitud','longitud','altitud','desc_emp',
+   'observaciones','resultado_global','prox_revision'].forEach(k=>sv(k,d[k]));
+
+  if(d.mapCapture){mapCapture=d.mapCapture;document.getElementById('map-cap-ok').style.display='block';}
+  if(d.latitud&&d.longitud) placeMarker(d.latitud,d.longitud);
+
+  (d.sectores||[]).forEach(s=>addSector(s));
+  (d.puntos||[]).forEach(p=>addPunto(p));
+
+  await loadPhotos('emplazamiento');
+  await loadPhotos('extra');
+
+  updateResBlock();
+  setSavePill('ok','✅ Datos cargados');
+}
+
+async function exportPDF(){
+  const {jsPDF}=window.jspdf;
+  if(!jsPDF){toast('jsPDF no disponible');return;}
+  toast('Generando PDF…');
+  await saveData();
+
+  const D=collectData();
+  const nombreEmp=D.nombre_emp||'Emplazamiento';
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const PW=210,PH=297,ML=14,MR=14,MT=18;
+  const TW=PW-ML-MR;
+  let y=MT;
+
+  const newPage=()=>{doc.addPage();drawPageHdr();y=MT;};
+  const chkY=(n=20)=>{if(y+n>PH-18)newPage();};
+
+  function drawPageHdr(){
+    doc.setFillColor(26,58,92);doc.rect(0,0,PW,11,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(8);doc.setFont('helvetica','bold');
+    doc.text('MED EER v31 — IGTEL',ML,7.5);
+    doc.text('MEDIDAS RADIOELÉCTRICAS EER/PSC',PW/2,7.5,{align:'center'});
+    doc.text(D.fecha||'',PW-MR,7.5,{align:'right'});
+    doc.setTextColor(0,0,0);
+  }
+
+  function secTitle(t){
+    chkY(10);
+    doc.setFillColor(44,95,138);doc.rect(ML,y,TW,6.5,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(9);doc.setFont('helvetica','bold');
+    doc.text(t,ML+2,y+4.5);doc.setTextColor(0,0,0);y+=8;
+  }
+
+  function field2(l1,v1,l2,v2){
+    chkY(9);
+    lbl(l1,ML,y);val(v1,ML,y+4);
+    lbl(l2,ML+TW/2,y);val(v2,ML+TW/2,y+4);
+    y+=9;
+  }
+  function field1(l,v){
+    chkY(9);lbl(l,ML,y);val(v,ML,y+4);y+=9;
+  }
+  function lbl(t,x,yy){
+    doc.setFontSize(6.5);doc.setFont('helvetica','bold');doc.setTextColor(100,110,130);
+    doc.text((t||'').toUpperCase(),x,yy);doc.setTextColor(0,0,0);
+  }
+  function val(t,x,yy){
+    doc.setFontSize(8.5);doc.setFont('helvetica','normal');
+    doc.text(t||'—',x,yy);
+  }
+  function hr(){
+    doc.setDrawColor(210,215,225);doc.line(ML,y,PW-MR,y);y+=3;
+  }
+
+  async function photoGrid(ids,pRow=2){
+    if(!ids||!ids.length) return;
+    const sp=4;
+    const iw=(TW-(pRow-1)*sp)/pRow;
+    const ih=iw*0.75;
+    let col=0;
+    for(const src of ids){
+      chkY(ih+sp);
+      try{
+        doc.addImage(src,'JPEG',ML+col*(iw+sp),y,iw,ih);
+      }catch(e){}
+      col++;
+      if(col>=pRow){col=0;y+=ih+sp;}
+    }
+    if(col>0)y+=ih+sp;
+    y+=2;
+  }
+
+  drawPageHdr();
+  y=MT;
+
+  secTitle('1. DATOS GENERALES');
+  field2('Empresa',D.empresa,'Técnico',D.tecnico);
+  field2('Fecha',D.fecha,'Referencia EER',D.referencia);
+  field1('Expediente / Nº Licencia',D.expediente);
+  hr();
+
+  secTitle('2. EMPLAZAMIENTO');
+  field1('Nombre del Emplazamiento',D.nombre_emp);
+  field2('Titular / Operador',D.titular,'Tipo',D.tipo_emp);
+  field1('Dirección',D.direccion);
+  field2('Municipio',D.municipio,'Provincia',D.provincia);
+  field2('Latitud',D.latitud?D.latitud+'°':'—','Longitud',D.longitud?D.longitud+'°':'—');
+  field1('Altitud',D.altitud?D.altitud+' m s.n.m.':'—');
+
+  if(D.desc_emp){
+    chkY(18);
+    lbl('Descripción',ML,y);y+=4;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');
+    const ls=doc.splitTextToSize(D.desc_emp,TW);
+    chkY(ls.length*4+4);
+    doc.text(ls,ML,y);y+=ls.length*4+4;
+  }
+
+  chkY(14);
+  if(mapCapture){
+    secTitle('MAPA DE LOCALIZACIÓN');
+    chkY(75);
+    try{doc.addImage(mapCapture,'JPEG',ML,y,TW,70);y+=73;}catch(e){}
+  }else{
+    chkY(18);
+    secTitle('MAPA DE LOCALIZACIÓN');
+    doc.setDrawColor(180,190,210);doc.setFillColor(248,250,253);
+    doc.roundedRect(ML,y,TW,14,2,2,'FD');
+    doc.setFontSize(8);doc.setTextColor(150,160,180);
+    doc.text('[Adjuntar mapa de localización — usar botón "Capturar mapa" en la app]',ML+TW/2,y+8,{align:'center'});
+    doc.setTextColor(0,0,0);y+=17;
+  }
+
+  const fEmp=await idbGet('fotos','emplazamiento');
+  if(fEmp&&fEmp.data&&fEmp.data.length){
+    newPage();
+    secTitle('FOTOS DEL EMPLAZAMIENTO');
+    await photoGrid(fEmp.data,2);
+  }
+
+  newPage();
+  generateDiagramCanvas();
+  secTitle('3. CROQUIS DE LA ZONA DE MEDIDA (100 m)');
+  const croqData=document.getElementById('croquis-canvas').toDataURL('image/png');
+  const cqW=Math.min(TW,140),cqH=cqW;
+  chkY(cqH+5);
+  doc.addImage(croqData,'PNG',ML+(TW-cqW)/2,y,cqW,cqH);
+  y+=cqH+6;
+
+  if(D.sectores.length){
+    newPage();
+    secTitle('4. DATOS DE SECTORES / ANTENAS');
+    for(let i=0;i<D.sectores.length;i++){
+      const s=D.sectores[i];
+      chkY(55);
+      doc.setFillColor(235,242,250);doc.rect(ML,y,TW,6,'F');
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(26,58,92);
+      doc.text(`Sector ${i+1} — ${s.operador||'—'} — Azimut ${s.azimut||'—'}°`,ML+2,y+4.2);
+      doc.setTextColor(0,0,0);y+=8;
+      field2('Operador',s.operador,'Sistema Radiante',s.sistema);
+      field2('Azimut',s.azimut?s.azimut+'°':'—','Tilting',s.tilting?s.tilting+'°':'—');
+      field2('Altura Antena',s.altura?s.altura+' m':'—','Banda / Frecuencia',s.frecuencia?s.frecuencia+' MHz':'—');
+      field2('Potencia EIRP',s.potencia?s.potencia+' dBm':'—','Ganancia',s.ganancia?s.ganancia+' dBi':'—');
+      if(s.obs){
+        doc.setFontSize(7);doc.setFont('helvetica','italic');doc.setTextColor(90,100,120);
+        doc.text('Obs: '+s.obs,ML,y);y+=5;doc.setTextColor(0,0,0);
+      }
+      hr();
+      const fS=await idbGet('fotos',s.id);
+      if(fS&&fS.data&&fS.data.length){
+        chkY(30);
+        doc.setFontSize(8);doc.setFont('helvetica','bold');
+        doc.text(`Fotos Sector ${i+1}:`,ML,y);y+=4;
+        await photoGrid(fS.data,3);
+      }
     }
   }
 
-  let imageY=y+2, availableImageH=70;
-  if(mapSrc){
-    const img=new Image();
-    await new Promise((resolve,reject)=>{img.onload=resolve; img.onerror=reject; img.src=mapSrc;});
-    let ratio=img.width/img.height, w=usableW, h=w/ratio;
-    if(h>availableImageH){h=availableImageH; w=h*ratio;}
-    if(w>usableW){w=usableW; h=w/ratio;}
-    const x=margin+((usableW-w)/2);
-    pdf.addImage(mapSrc,getImageFormatFromDataUrl(mapSrc),x,imageY,w,h);
-    y=imageY+h+4;
-  } else { y=imageY; }
+  if(D.puntos.length){
+    newPage();
+    secTitle('5. RESULTADOS DE MEDICIÓN EER/PSC');
+    for(let i=0;i<D.puntos.length;i++){
+      const p=D.puntos[i];
+      chkY(65);
+      doc.setFillColor(235,248,238);doc.rect(ML,y,TW,6,'F');
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(21,87,36);
+      doc.text(`Punto ${i+1} — ${p.desc||'Sin descripción'}`,ML+2,y+4.2);
+      doc.setTextColor(0,0,0);y+=8;
+      field2('Distancia al foco',p.dist?p.dist+' m':'—','Azimut al foco',p.az?p.az+'°':'—');
+      field1('Altura de medida',p.hm?p.hm+' m':'—');
 
-  const x={p:margin,hora:margin+16,valor:margin+34,es:margin+62,tipo:margin+80,dist:margin+104,ori:margin+126,right:margin+usableW};
-  y=drawTableHeader(pdf,y,margin,x,unidad);
-  for(let i=0;i<measures.length;i++){
-    if(y > pageH-margin-12){ pdf.addPage(); y=margin+8; y=drawTableHeader(pdf,y,margin,x,unidad); }
-    const m=measures[i];
-    pdf.text(`P${i+1}`,x.p,y); pdf.text(String(m.hora||'-'),x.hora,y); pdf.text(String(m.valor||'-'),x.valor,y); pdf.text(String(m.es||'-'),x.es,y); pdf.text(String(m.tipoEs||'-'),x.tipo,y); pdf.text(String(m.dist),x.dist,y); pdf.text(String(m.ori),x.ori,y);
-    y+=4.1;
+      if(p.mediciones&&p.mediciones.length){
+        const cols=[30,30,32,32,20,22,14];
+        const hdrs=['Banda (MHz)','E (dBµV/m)','E (V/m)','Límite (V/m)','Cumple','% Lím.',''];
+        chkY(8+p.mediciones.length*6.5);
+        doc.setFillColor(44,95,138);doc.rect(ML,y,TW,5.5,'F');
+        doc.setTextColor(255,255,255);doc.setFontSize(7);doc.setFont('helvetica','bold');
+        let tx=ML;
+        hdrs.forEach((h,i)=>{doc.text(h,tx+cols[i]/2,y+3.8,{align:'center'});tx+=cols[i];});
+        doc.setTextColor(0,0,0);y+=5.5;
+
+        p.mediciones.forEach((m,mi)=>{
+          chkY(7);
+          if(mi%2===0){doc.setFillColor(248,251,255);doc.rect(ML,y,TW,6,'F');}
+          doc.setFont('helvetica','normal');doc.setFontSize(7.5);
+          const vm=parseFloat(m.vm),lim=parseFloat(m.lim);
+          const pct=(!isNaN(vm)&&!isNaN(lim)&&lim>0)?((vm/lim)*100).toFixed(1)+'%':'—';
+          const vals=[m.freq||'—',m.uv||'—',m.vm||'—',m.lim||'—',m.cumple||'—',pct,''];
+          tx=ML;
+          vals.forEach((v,vi)=>{
+            if(vi===4){
+              if(v==='SÍ') doc.setTextColor(21,87,36);
+              else if(v==='NO') doc.setTextColor(114,28,36);
+              else doc.setTextColor(0,0,0);
+            } else doc.setTextColor(0,0,0);
+            doc.text(v,tx+cols[vi]/2,y+4,{align:'center'});
+            tx+=cols[vi];
+          });
+          doc.setTextColor(0,0,0);
+          doc.setDrawColor(200,208,220);doc.rect(ML,y,TW,6,'S');
+          y+=6;
+        });
+        y+=3;
+      }
+
+      if(p.obs){
+        doc.setFontSize(7);doc.setFont('helvetica','italic');doc.setTextColor(90,100,120);
+        doc.text('Obs: '+p.obs,ML,y);y+=5;doc.setTextColor(0,0,0);
+      }
+      hr();
+      const fP=await idbGet('fotos',p.id);
+      if(fP&&fP.data&&fP.data.length){
+        chkY(30);
+        doc.setFontSize(8);doc.setFont('helvetica','bold');
+        doc.text(`Fotos Punto ${i+1}:`,ML,y);y+=4;
+        await photoGrid(fP.data,3);
+      }
+    }
   }
-  if(y+legendHeight > pageH-margin){ pdf.addPage(); y=margin+8; }
-  pdf.setFontSize(6.5); pdf.text(legendLines,margin,y+1.5); y+=legendHeight;
-  if(obsText){
-    if(y+obsHeight > pageH-margin){ pdf.addPage(); y=margin+8; }
-    pdf.setFontSize(7.5); pdf.text("Observaciones:",margin,y+2); pdf.text(obsLines,margin,y+6); y+=obsHeight;
+
+  newPage();
+  secTitle('6. CONCLUSIONES Y RESULTADO GLOBAL');
+
+  const res=D.resultado_global;
+  if(res){
+    chkY(14);
+    const rMap={
+      CUMPLE:{bg:[212,237,218],tc:[21,87,36],txt:'CUMPLE — Niveles dentro de los límites de exposición radioeléctrica'},
+      NO_CUMPLE:{bg:[248,215,218],tc:[114,28,36],txt:'NO CUMPLE — Niveles superiores a los límites establecidos'},
+      CONDICIONADO:{bg:[255,243,205],tc:[133,100,4],txt:'CONDICIONADO — Cumple con restricciones o medidas correctoras'}
+    };
+    const r=rMap[res]||{bg:[240,240,240],tc:[50,50,50],txt:res};
+    doc.setFillColor(...r.bg);doc.rect(ML,y,TW,10,'F');
+    doc.setTextColor(...r.tc);doc.setFontSize(10);doc.setFont('helvetica','bold');
+    doc.text('RESULTADO: '+r.txt,ML+TW/2,y+6.5,{align:'center'});
+    doc.setTextColor(0,0,0);y+=13;
   }
-  await addPhotoAnnex(pdf, margin, pageW, pageH);
-  pdf.save("med_eer.pdf");
+
+  if(D.observaciones){
+    chkY(20);
+    lbl('Conclusiones / Observaciones',ML,y);y+=4;
+    doc.setFontSize(8);doc.setFont('helvetica','normal');
+    const ls=doc.splitTextToSize(D.observaciones,TW);
+    chkY(ls.length*4.5+5);
+    doc.text(ls,ML,y);y+=ls.length*4.5+5;
+  }
+
+  field2('Fecha de medida',D.fecha,'Próxima revisión',D.prox_revision||'—');
+
+  chkY(40);y+=12;
+  doc.setDrawColor(0,0,0);
+  doc.line(ML,y+18,ML+58,y+18);
+  doc.line(PW-MR-58,y+18,PW-MR,y+18);
+  doc.setFontSize(7);doc.setTextColor(90,100,120);
+  doc.text('Técnico responsable',ML+29,y+23,{align:'center'});
+  doc.text('Empresa / Firma',PW-MR-29,y+23,{align:'center'});
+  doc.text(D.tecnico||'',ML+29,y+28,{align:'center'});
+  doc.text(D.empresa||'',PW-MR-29,y+28,{align:'center'});
+
+  const fEx=await idbGet('fotos','extra');
+  if(fEx&&fEx.data&&fEx.data.length){
+    newPage();
+    secTitle('FOTOGRAFÍAS ADICIONALES / ANEXOS');
+    await photoGrid(fEx.data,2);
+  }
+
+  const total=doc.internal.getNumberOfPages();
+  for(let i=1;i<=total;i++){
+    doc.setPage(i);
+    doc.setFontSize(6.5);doc.setTextColor(150,160,175);
+    doc.text(`Pág. ${i} de ${total}`,PW/2,PH-7,{align:'center'});
+    doc.text(`Ref: ${D.referencia||nombreEmp}`,ML,PH-7);
+    doc.text(new Date().toLocaleDateString('es-ES'),PW-MR,PH-7,{align:'right'});
+  }
+
+  const filename=`Hoja medidas ${nombreEmp}.pdf`;
+  doc.save(filename);
+  toast(`📄 PDF guardado: ${filename}`,4000);
+}
+
+async function clearAll(){
+  if(!confirm('⚠️ ¿Eliminar TODOS los datos y fotos guardados? Esta acción no se puede deshacer.')) return;
+  await idbPut('datos',{key:'formulario'});
+  const ids=['emplazamiento','extra'];
+  document.querySelectorAll('.sector-card,.punto-card').forEach(c=>ids.push(c.dataset.id));
+  for(const id of ids) await idbDel('fotos',id);
+  toast('Datos eliminados. Recargando…',1500);
+  setTimeout(()=>location.reload(),1600);
+}
+
+function esc(v){ return (v||'').toString().replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+let _toastTimer;
+function toast(msg,ms=3500){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>el.classList.remove('show'),ms);
+}
+
+function setSavePill(state,msg){
+  const el=document.getElementById('save-pill');
+  el.textContent=msg;
+  el.className='save-pill '+({ok:'ok',busy:'busy',err:'err'}[state]||'');
+}
+
+window.addEventListener('online', ()=>document.getElementById('offline-dot').style.display='none');
+window.addEventListener('offline',()=>document.getElementById('offline-dot').style.display='inline-block');
+if(!navigator.onLine) document.getElementById('offline-dot').style.display='inline-block';
+
+window.addEventListener('DOMContentLoaded',async()=>{
+  try{
+    setSavePill('busy','Iniciando…');
+    await initDB();
+    initMap();
+    await loadData();
+    setupAutoSave();
+    if(!document.getElementById('fecha').value){
+      document.getElementById('fecha').value=new Date().toISOString().split('T')[0];
+    }
+    generateDiagramCanvas();
+    setSavePill('ok','✅ Listo');
+  }catch(e){
+    console.error('Init error:',e);
+    setSavePill('err','❌ Error de inicio');
+    toast('Error al inicializar: '+e.message,6000);
+  }
 });
-loadAuto();
 </script>
 </body>
 </html>
