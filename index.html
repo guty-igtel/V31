@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>MED EER v31</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+<style>
+body{font-family:Arial,sans-serif;margin:0}
+header{background:#0b63a5;color:#fff;padding:10px}
+#main{padding:10px}
+#map{height:360px;border:1px solid #ccc}
+input,button,select,textarea{margin:4px;padding:6px}
+textarea{width:calc(100% - 16px);min-height:90px;box-sizing:border-box}
+.point-label,.sector-label{color:#fff;font-weight:bold;background:transparent!important;border:none!important;box-shadow:none!important;white-space:nowrap;text-shadow:-1px -1px 3px #000,1px -1px 3px #000,-1px 1px 3px #000,1px 1px 3px #000}
+.point-label{font-size:13px}.sector-label{font-size:13px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid #ccc;padding:5px;text-align:center;vertical-align:middle}
+th{background:#eee}
+#preview{max-width:100%;display:none;margin-top:10px}
+#status{font-size:12px;color:#555;margin:4px 0 8px 4px}
+.small{font-size:12px;color:#555}
+.danger{background:#b42318;color:#fff;border:1px solid #8f1d13}
+.leaflet-div-icon{background:transparent;border:none}
+#coordsDMS{font-size:13px;color:#333;margin:4px}
+.thumb{width:36px;height:36px;object-fit:cover;vertical-align:middle;margin:2px;border:1px solid #ccc}
+.photoInput{font-size:11px;padding:2px}
+li{margin:4px 0}
+</style>
+</head>
+<body>
+<header><h3 style="margin:0">MED EER v31</h3></header>
+<div id="main">
+<button id="btnNewWork">Nuevo trabajo</button>
+<button id="btnSaveFile">Guardar trabajo</button>
+<button type="button" id="btnLoadFile">Cargar trabajo</button>
+<input id="fileLoad" type="file" accept=".json,application/json" style="display:none">
+<br>
+<input id="name" placeholder="Emplazamiento">
+<input id="date" placeholder="Fecha">
+<input id="equipo" placeholder="Equipo">
+<input id="tecnico" placeholder="Técnico">
+<select id="unidad">
+<option value="dBµV/m">dBµV/m</option>
+<option value="V/m" selected>V/m</option>
+<option value="W/m2">W/m²</option>
+<option value="%NR">% Nivel de referencia</option>
+</select>
+<h4>Observaciones</h4>
+<textarea id="observaciones" placeholder="Observaciones del trabajo"></textarea>
+<br>
+<input id="lat" placeholder="Lat decimal">
+<input id="lng" placeholder="Lng decimal">
+<button id="btnSet">Marcar estación</button>
+<button id="btnGPS">Usar mi ubicación</button>
+<button id="btnMove">Mover centro</button>
+<br>
+<span class="small">Foto de la estación (opcional):</span>
+<input type="file" id="stationPhotoInput" accept="image/*">
+<img id="stationPhotoPreview" class="thumb" style="display:none">
+<br>
+<input id="coordText" placeholder='Pega aquí coordenadas DMS o decimal. Ej: 43°20&#39;04.89"N 8°19&#39;58.05"W' style="width:calc(100% - 16px)">
+<button id="btnParseCoords">Cargar coordenadas pegadas</button>
+<div id="coordsDMS"></div>
+<div id="status"></div>
+<div id="map"></div>
+<h4>Sectores</h4>
+<input id="angle" placeholder="Ángulo">
+<button id="btnAddSector">Añadir</button>
+<br>
+<input id="sectorText" placeholder="Pega orientaciones. Ej: 35/230/335" style="width:calc(100% - 16px)">
+<button id="btnParseSectors">Cargar sectores pegados</button>
+<ul id="sectorList"></ul>
+<h4>Puntos</h4>
+<table>
+<thead><tr><th>P</th><th>Hora</th><th>Valor</th><th>E.S.</th><th>Tipo E.S.</th><th>Dist</th><th>Ori</th><th>Foto</th><th>X</th></tr></thead>
+<tbody id="tbody"></tbody>
+</table>
+<h4>Captura</h4>
+<button id="btnCaptureMap">Capturar mapa automáticamente</button>
+<input type="file" id="imgInput" accept="image/*">
+<div class="small">La captura automática usa el mapa tal cual se ve. Si falla (por restricciones del proveedor de mapas), sube una captura manual con el botón de arriba/foto. Se insertará en el PDF manteniendo la proporción.</div>
+<img id="preview">
+<button id="btnPDF">Exportar PDF</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet-image@0.4.0/leaflet-image.js"></script>
+<script>
+const el=id=>document.getElementById(id), STORAGE_KEY="medEER_v31";
+let map=L.map('map').setView([40.4,-3.7],17);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'Tiles © Esri'}).addTo(map);
+let station=null, stationPhoto='', measures=[], sectors=[], layers=[], moveMode=false;
+const sensitiveOptions=[{value:'',label:'-'},{value:'PP',label:'PP'},{value:'RA',label:'RA'},{value:'ES',label:'ES'},{value:'HS',label:'HS'}];
+
+function setStatus(msg){el('status').textContent=msg||''}
+function toDMS(coord,isLat){const dir=coord>=0?(isLat?'N':'E'):(isLat?'S':'W');const abs=Math.abs(coord);const deg=Math.floor(abs);const minFloat=(abs-deg)*60;const min=Math.floor(minFloat);const sec=((minFloat-min)*60).toFixed(2);return `${deg}° ${min}' ${sec}" ${dir}`;}
+function updateDMS(){el('coordsDMS').innerHTML=station?`Lat: ${toDMS(station.lat,true)}<br>Lng: ${toDMS(station.lng,false)}`:''}
+function clearMap(){layers.forEach(l=>{try{map.removeLayer(l)}catch(e){}});layers=[]}
+function bearing(lat1,lon1,lat2,lon2){let y=Math.sin((lon2-lon1)*Math.PI/180)*Math.cos(lat2*Math.PI/180);let x=Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180)-Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos((lon2-lon1)*Math.PI/180);return Math.round((Math.atan2(y,x)*180/Math.PI+360)%360)}
+function dest(lat,lng,d,a){let R=6371000, br=a*Math.PI/180, lat1=lat*Math.PI/180, lon1=lng*Math.PI/180;let lat2=Math.asin(Math.sin(lat1)*Math.cos(d/R)+Math.cos(lat1)*Math.sin(d/R)*Math.cos(br));let lon2=lon1+Math.atan2(Math.sin(br)*Math.sin(d/R)*Math.cos(lat1),Math.cos(d/R)-Math.sin(lat1)*Math.sin(lat2));return {lat:lat2*180/Math.PI,lng:lon2*180/Math.PI};}
+
+function redraw(){
+  clearMap();
+  if(!station){updateDMS();return;}
+  layers.push(L.circleMarker([station.lat,station.lng],{radius:8,color:'#1f4f9c',fillColor:'#ffffff',fillOpacity:1,weight:3}).addTo(map));
+  layers.push(L.circle([station.lat,station.lng],{radius:100,color:'blue',fillOpacity:0.08,weight:3}).addTo(map));
+  sectors.forEach((s,i)=>{const end=dest(station.lat,station.lng,100,s.angle);layers.push(L.polyline([[station.lat,station.lng],[end.lat,end.lng]],{color:'red',weight:3}).addTo(map));layers.push(L.marker([end.lat,end.lng],{zIndexOffset:200,icon:L.divIcon({className:'',html:`<div class="sector-label">S${i+1} - ${s.angle}°</div>`,iconSize:[92,20],iconAnchor:[0,10]})}).addTo(map));});
+  measures.forEach((p,i)=>{layers.push(L.circleMarker([p.lat,p.lng],{radius:6,color:'#0066cc',fillColor:'#4da3ff',fillOpacity:1,weight:2}).addTo(map));layers.push(L.marker([p.lat,p.lng],{zIndexOffset:1000,icon:L.divIcon({className:'',html:`<div class="point-label">P${i+1}</div>`,iconSize:[36,20],iconAnchor:[-8,18]})}).addTo(map));});
+  updateDMS();
+}
+
+function getWorkData(){return {version:31,savedAt:new Date().toISOString(),fields:{name:el('name').value||'',date:el('date').value||'',equipo:el('equipo').value||'',tecnico:el('tecnico').value||'',unidad:el('unidad')?el('unidad').value||'V/m':'V/m',observaciones:el('observaciones').value||'',lat:el('lat').value||'',lng:el('lng').value||'',coordText:el('coordText')?el('coordText').value||'':'',sectorText:el('sectorText')?el('sectorText').value||'':''},station,stationPhoto,measures,sectors,preview:(el('preview').src&&el('preview').style.display!=='none')?el('preview').src:''};}
+function applyWorkData(data){
+  const fields=data.fields||{};
+  el('name').value=fields.name||''; el('date').value=fields.date||''; el('equipo').value=fields.equipo||''; el('tecnico').value=fields.tecnico||''; if(el('unidad')) el('unidad').value=fields.unidad||'V/m'; el('observaciones').value=fields.observaciones||''; el('lat').value=fields.lat||''; el('lng').value=fields.lng||''; if(el('coordText')) el('coordText').value=fields.coordText||''; if(el('sectorText')) el('sectorText').value=fields.sectorText||'';
+  station=data.station||null;
+  stationPhoto=data.stationPhoto||'';
+  if(stationPhoto){el('stationPhotoPreview').src=stationPhoto;el('stationPhotoPreview').style.display='inline-block';} else {el('stationPhotoPreview').src='';el('stationPhotoPreview').style.display='none';}
+  measures=Array.isArray(data.measures)?data.measures.map(m=>({...m,hora:m.hora||'',valor:m.valor||'',es:m.es||'No',tipoEs:m.tipoEs||'',photo:m.photo||''})):[];
+  sectors=Array.isArray(data.sectors)?data.sectors.map(s=>typeof s==='number'?{angle:s,photo:''}:{angle:s.angle,photo:s.photo||''}):[];
+  if(data.preview){el('preview').src=data.preview;el('preview').style.display='block';} else {el('preview').src='';el('preview').style.display='none';}
+  renderSectors(); renderTable(); map.setView(station?[station.lat,station.lng]:[40.4,-3.7], station?18:17); redraw();
+}
+function saveAuto(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(getWorkData()));}catch(e){console.error(e)}}
+function loadAuto(){const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return; try{applyWorkData(JSON.parse(raw));}catch(e){console.error(e)}}
+function suggestFileName(){const base=(el('name').value||'trabajo').trim().replace(/[\\/:*?"<>|]+/g,'_'); return `${base}.json`;}
+function saveWorkToFile(){try{const blob=new Blob([JSON.stringify(getWorkData(),null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=suggestFileName(); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); setStatus('Trabajo guardado en archivo.');}catch(e){console.error(e); alert('No se pudo guardar el archivo.');}}
+function loadWorkFromFile(file){const reader=new FileReader(); reader.onload=ev=>{try{applyWorkData(JSON.parse(ev.target.result)); saveAuto(); setStatus('Trabajo cargado correctamente.');}catch(e){console.error(e); alert('El archivo no es válido.');}}; reader.readAsText(file,'utf-8');}
+
+function parseCoordinateText(input){
+  const txt = (input || '').trim();
+  if (!txt) return null;
+  let m = txt.match(/(\d{1,2})°\s*(\d{1,2})'\s*(\d{1,2}(?:\.\d+)?)"\s*([NS])[\s,;]+(\d{1,3})°\s*(\d{1,2})'\s*(\d{1,2}(?:\.\d+)?)"\s*([EW])/i);
+  if (m) {
+    let lat = parseFloat(m[1]) + parseFloat(m[2])/60 + parseFloat(m[3])/3600;
+    let lng = parseFloat(m[5]) + parseFloat(m[6])/60 + parseFloat(m[7])/3600;
+    if (m[4].toUpperCase() === 'S') lat *= -1;
+    if (m[8].toUpperCase() === 'W') lng *= -1;
+    return {lat, lng};
+  }
+  const nums = txt.match(/-?\d+(?:\.\d+)?/g);
+  if (nums && nums.length >= 2 && !/[NSEW°'"]/.test(txt)) {
+    const lat = parseFloat(nums[0]), lng = parseFloat(nums[1]);
+    if (!Number.isNaN(lat) && !Number.isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return {lat, lng};
+  }
+  return null;
+}
+
+function normalizeAngle(n){let a=n%360; if(a<0)a+=360; return Math.round(a*100)/100;}
+
+function parseSectorText(input){
+  if (!input) return [];
+  const nums = input.match(/\d+(?:\.\d+)?/g);
+  if (!nums) return [];
+  const vals = nums.map(n => parseFloat(n)).filter(n => !Number.isNaN(n)).map(normalizeAngle);
+  return [...new Set(vals)].sort((a,b)=>a-b);
+}
+
+function readFileAsDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader(); r.onload=e=>resolve(e.target.result); r.onerror=reject; r.readAsDataURL(file);});}
+
+function setStationFromInputs(){const lat=parseFloat(el('lat').value), lng=parseFloat(el('lng').value); if(Number.isNaN(lat)||Number.isNaN(lng)) return alert('Coords inválidas'); station={lat,lng}; map.setView([lat,lng],18); redraw(); saveAuto();}
+el('btnSet').addEventListener('click',setStationFromInputs);
+
+if (el('btnParseCoords')) {
+  el('btnParseCoords').addEventListener('click',()=>{
+    const parsed = parseCoordinateText(el('coordText').value);
+    if (!parsed) return alert('No se pudieron interpretar las coordenadas.');
+    el('lat').value = parsed.lat.toFixed(6);
+    el('lng').value = parsed.lng.toFixed(6);
+    station = parsed;
+    map.setView([parsed.lat, parsed.lng], 18);
+    redraw();
+    saveAuto();
+    setStatus('Coordenadas cargadas correctamente.');
+  });
+}
+
+if (el('btnParseSectors')) {
+  el('btnParseSectors').addEventListener('click',()=>{
+    const parsed = parseSectorText(el('sectorText').value);
+    if (!parsed.length) return alert('No se pudieron interpretar las orientaciones.');
+    sectors = parsed.map(a=>({angle:a,photo:''}));
+    renderSectors();
+    redraw();
+    saveAuto();
+    setStatus('Sectores cargados correctamente.');
+  });
+}
+el('btnGPS').addEventListener('click',()=>{setStatus('Obteniendo ubicación...'); if(!window.isSecureContext){setStatus('La ubicación requiere HTTPS.'); return alert('La ubicación requiere HTTPS.');} if(!navigator.geolocation){setStatus('Este navegador no soporta geolocalización.'); return alert('Este navegador no soporta geolocalización.');} navigator.geolocation.getCurrentPosition(pos=>{const lat=pos.coords.latitude,lng=pos.coords.longitude; el('lat').value=lat.toFixed(6); el('lng').value=lng.toFixed(6); station={lat,lng}; map.setView([lat,lng],18); redraw(); saveAuto(); setStatus('Ubicación obtenida correctamente.');},err=>{let msg=err.message||'No se pudo obtener la ubicación.'; if(err.code===1)msg='Permiso denegado'; if(err.code===2)msg='Posición no disponible'; if(err.code===3)msg='Tiempo de espera agotado'; setStatus('Error GPS: '+msg); alert('GPS: '+msg);},{enableHighAccuracy:true,timeout:15000,maximumAge:0});});
+el('btnMove').addEventListener('click',()=>{moveMode=true; alert('Toca en mapa para mover centro');});
+map.on('click',e=>{if(moveMode){station={lat:e.latlng.lat,lng:e.latlng.lng}; el('lat').value=station.lat.toFixed(6); el('lng').value=station.lng.toFixed(6); moveMode=false; redraw(); saveAuto(); return;} if(!station) return; let dist=Math.round(map.distance([station.lat,station.lng],e.latlng)); if(dist>100) return; let ori=bearing(station.lat,station.lng,e.latlng.lat,e.latlng.lng); measures.push({lat:e.latlng.lat,lng:e.latlng.lng,dist,ori,hora:'',valor:'',es:'No',tipoEs:'',photo:''}); renderTable(); redraw(); saveAuto();});
+
+el('btnAddSector').addEventListener('click',()=>{let a=parseFloat(el('angle').value); if(Number.isNaN(a)) return; a=normalizeAngle(a); sectors.push({angle:a,photo:''}); sectors.sort((x,y)=>x.angle-y.angle); el('angle').value=''; renderSectors(); redraw(); saveAuto();});
+function removeSector(i){sectors.splice(i,1); sectors.sort((x,y)=>x.angle-y.angle); renderSectors(); redraw(); saveAuto();} window.removeSector=removeSector;
+function renderSectors(){
+  const ul=el('sectorList'); ul.innerHTML='';
+  sectors.forEach((s,i)=>{
+    let li=document.createElement('li');
+    li.innerHTML=`S${i+1} - ${s.angle}° <input type="file" accept="image/*" class="photoInput sectorPhotoInput" data-i="${i}">${s.photo?`<img class="thumb" src="${s.photo}">`:''} <button onclick="removeSector(${i})">X</button>`;
+    ul.appendChild(li);
+  });
+  ul.querySelectorAll('.sectorPhotoInput').forEach(inp=>{
+    inp.addEventListener('change', async e=>{
+      const i=parseInt(e.target.dataset.i,10); const file=e.target.files[0]; if(!file) return;
+      sectors[i].photo=await readFileAsDataURL(file); renderSectors(); saveAuto();
+    });
+  });
+}
+function deleteMeasure(i){measures.splice(i,1); renderTable(); redraw(); saveAuto();} window.deleteMeasure=deleteMeasure;
+function buildTipoOptions(selected){return sensitiveOptions.map(opt=>`<option value="${opt.value}" ${selected===opt.value?'selected':''}>${opt.label}</option>`).join('');}
+function renderTable(){
+  const tbody=el('tbody'); tbody.innerHTML='';
+  measures.forEach((m,i)=>{let tr=document.createElement('tr'); tr.innerHTML=`<td>P${i+1}</td><td><input value="${m.hora||''}" data-i="${i}" data-f="hora"></td><td><input value="${m.valor||''}" data-i="${i}" data-f="valor"></td><td><select data-i="${i}" data-f="es"><option value="No" ${m.es==='No'?'selected':''}>No</option><option value="Sí" ${m.es==='Sí'?'selected':''}>Sí</option></select></td><td><select data-i="${i}" data-f="tipoEs" ${m.es==='Sí'?'':'disabled'}>${buildTipoOptions(m.tipoEs||'')}</select></td><td>${m.dist}</td><td>${m.ori}</td><td><input type="file" accept="image/*" class="photoInput pointPhotoInput" data-i="${i}">${m.photo?`<br><img class="thumb" src="${m.photo}">`:''}</td><td><button class="danger" onclick="deleteMeasure(${i})">X</button></td>`; tbody.appendChild(tr);});
+  tbody.querySelectorAll('input:not(.photoInput), select').forEach(ctrl=>{ctrl.addEventListener('change',e=>{const i=parseInt(e.target.dataset.i,10), f=e.target.dataset.f; measures[i][f]=e.target.value; if(f==='es'){if(e.target.value==='No') measures[i].tipoEs=''; renderTable();} saveAuto();});});
+  tbody.querySelectorAll('.pointPhotoInput').forEach(inp=>{
+    inp.addEventListener('change', async e=>{
+      const i=parseInt(e.target.dataset.i,10); const file=e.target.files[0]; if(!file) return;
+      measures[i].photo=await readFileAsDataURL(file); renderTable(); saveAuto();
+    });
+  });
+}
+el('stationPhotoInput').addEventListener('change', async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  stationPhoto=await readFileAsDataURL(file);
+  el('stationPhotoPreview').src=stationPhoto; el('stationPhotoPreview').style.display='inline-block';
+  saveAuto();
+});
+el('imgInput').addEventListener('change',e=>{let file=e.target.files[0]; if(!file) return; let r=new FileReader(); r.onload=ev=>{el('preview').src=ev.target.result; el('preview').style.display='block'; saveAuto();}; r.readAsDataURL(file);});
+el('btnCaptureMap').addEventListener('click',()=>{
+  setStatus('Generando captura del mapa...');
+  leafletImage(map, (err, canvas)=>{
+    if(err){ console.error(err); setStatus('No se pudo generar la captura automática.'); alert('No se pudo generar la captura automática (posible restricción del proveedor de mapas). Sube una foto manual como alternativa.'); return; }
+    const dataUrl = canvas.toDataURL('image/png');
+    el('preview').src = dataUrl;
+    el('preview').style.display='block';
+    setStatus('Mapa capturado correctamente.');
+    saveAuto();
+  });
+});
+['name','date','equipo','tecnico','unidad','lat','lng','observaciones','coordText','sectorText'].forEach(id=>{ if(el(id)) el(id).addEventListener('input',saveAuto); if(el(id)) el(id).addEventListener('change',saveAuto); });
+el('btnNewWork').addEventListener('click',()=>{if(!confirm('¿Borrar trabajo actual?')) return; localStorage.removeItem(STORAGE_KEY); station=null; stationPhoto=''; measures=[]; sectors=[]; moveMode=false; clearMap(); ['name','date','equipo','tecnico','observaciones','lat','lng','angle','coordText','sectorText'].forEach(id=>{ if(el(id)) el(id).value=''; }); if(el('unidad')) el('unidad').value='V/m'; setStatus(''); el('coordsDMS').innerHTML=''; el('preview').src=''; el('preview').style.display='none'; el('stationPhotoPreview').src=''; el('stationPhotoPreview').style.display='none'; renderSectors(); renderTable(); map.setView([40.4,-3.7],17);});
+el('btnSaveFile').addEventListener('click',saveWorkToFile);
+el('btnLoadFile').addEventListener('click',()=>el('fileLoad').click());
+el('fileLoad').addEventListener('change',e=>{const file=e.target.files&&e.target.files[0]; if(!file) return; loadWorkFromFile(file); e.target.value='';});
+
+function getImageFormatFromDataUrl(dataUrl){if(!dataUrl) return 'JPEG'; const lower=dataUrl.toLowerCase(); if(lower.startsWith('data:image/png')) return 'PNG'; if(lower.startsWith('data:image/webp')) return 'WEBP'; return 'JPEG';}
+function splitLegend(pdf,width){pdf.setFontSize(6.5); return pdf.splitTextToSize("Tipo E.S.: PP = parques públicos | RA = residencias de ancianos | ES = colegios o guarderías | HS = hospitales y centros de salud",width);}
+
+function drawTableHeader(pdf,y,margin,x,unidad){
+  pdf.setFontSize(7.5);
+  pdf.text("Punto",x.p,y); pdf.text("Hora",x.hora,y); pdf.text(`Valor (${unidad})`,x.valor,y); pdf.text("E.S.",x.es,y); pdf.text("Tipo",x.tipo,y); pdf.text("Dist",x.dist,y); pdf.text("Ori",x.ori,y);
+  y+=3.2; pdf.line(margin,y,x.right,y); y+=4.0;
+  return y;
+}
+
+async function addPhotoAnnex(pdf, margin, pageW, pageH){
+  const items=[];
+  if(stationPhoto) items.push({label:'Estación', src:stationPhoto});
+  sectors.forEach((s,i)=>{ if(s.photo) items.push({label:`Sector S${i+1} (${s.angle}°)`, src:s.photo}); });
+  measures.forEach((m,i)=>{ if(m.photo) items.push({label:`Punto P${i+1}`, src:m.photo}); });
+  if(!items.length) return;
+  pdf.addPage();
+  pdf.setFontSize(11); pdf.text("Anexo fotográfico", margin, margin+4);
+  let y = margin+12, col=0;
+  const cellW = (pageW-margin*2-10)/2, cellH=60, gap=10;
+  for(const item of items){
+    const img=new Image();
+    await new Promise(resolve=>{ img.onload=resolve; img.onerror=resolve; img.src=item.src; });
+    if(!img.width) continue;
+    if(y+cellH+6 > pageH-margin){ pdf.addPage(); y=margin+8; col=0; }
+    let ratio=img.width/img.height, w=cellW, h=w/ratio;
+    if(h>cellH){h=cellH; w=h*ratio;}
+    const cx = margin + col*(cellW+gap);
+    pdf.addImage(item.src, getImageFormatFromDataUrl(item.src), cx, y, w, h);
+    pdf.setFontSize(7.5); pdf.text(item.label, cx, y+cellH+4);
+    col++;
+    if(col>1){ col=0; y+=cellH+10; }
+  }
+}
+
+el('btnPDF').addEventListener('click', async ()=>{
+  const {jsPDF}=window.jspdf; let pdf=new jsPDF({unit:'mm',format:'a4'});
+  const pageW=pdf.internal.pageSize.getWidth(), pageH=pdf.internal.pageSize.getHeight(), margin=10, usableW=pageW-margin*2;
+  const unidad=el('unidad')?el('unidad').value||'V/m':'V/m';
+  pdf.setFontSize(9); let y=12;
+  pdf.text("Emplazamiento: "+(el('name').value||''),margin,y); y+=7;
+  pdf.text("Fecha: "+(el('date').value||''),margin,y); y+=7;
+  pdf.text("Equipo: "+(el('equipo').value||''),margin,y); y+=7;
+  pdf.text("Tecnico: "+(el('tecnico').value||''),margin,y); y+=7;
+  if(station){pdf.text("Latitud: "+toDMS(station.lat,true),margin,y); y+=6; pdf.text("Longitud: "+toDMS(station.lng,false),margin,y); y+=6;}
+  pdf.setFontSize(7.5);
+  const obsText=(el('observaciones').value||'').trim();
+  const obsLines=obsText?pdf.splitTextToSize(obsText,usableW):[];
+  const obsHeight=obsText?(4+obsLines.length*3.2+2):0;
+  const legendLines=splitLegend(pdf,usableW), legendHeight=legendLines.length*3.0+3;
+  let imageY=y+2, availableImageH=70;
+  if(el('preview').src){
+    const img=new Image();
+    await new Promise((resolve,reject)=>{img.onload=resolve; img.onerror=reject; img.src=el('preview').src;});
+    let ratio=img.width/img.height, w=usableW, h=w/ratio;
+    if(h>availableImageH){h=availableImageH; w=h*ratio;}
+    if(w>usableW){w=usableW; h=w/ratio;}
+    const x=margin+((usableW-w)/2);
+    pdf.addImage(el('preview').src,getImageFormatFromDataUrl(el('preview').src),x,imageY,w,h);
+    y=imageY+h+4;
+  } else { y=imageY; }
+
+  const x={p:margin,hora:margin+16,valor:margin+34,es:margin+62,tipo:margin+80,dist:margin+104,ori:margin+126,right:margin+usableW};
+  y=drawTableHeader(pdf,y,margin,x,unidad);
+  for(let i=0;i<measures.length;i++){
+    if(y > pageH-margin-12){ pdf.addPage(); y=margin+8; y=drawTableHeader(pdf,y,margin,x,unidad); }
+    const m=measures[i];
+    pdf.text(`P${i+1}`,x.p,y); pdf.text(String(m.hora||'-'),x.hora,y); pdf.text(String(m.valor||'-'),x.valor,y); pdf.text(String(m.es||'-'),x.es,y); pdf.text(String(m.tipoEs||'-'),x.tipo,y); pdf.text(String(m.dist),x.dist,y); pdf.text(String(m.ori),x.ori,y);
+    y+=4.1;
+  }
+  if(y+legendHeight > pageH-margin){ pdf.addPage(); y=margin+8; }
+  pdf.setFontSize(6.5); pdf.text(legendLines,margin,y+1.5); y+=legendHeight;
+  if(obsText){
+    if(y+obsHeight > pageH-margin){ pdf.addPage(); y=margin+8; }
+    pdf.setFontSize(7.5); pdf.text("Observaciones:",margin,y+2); pdf.text(obsLines,margin,y+6); y+=obsHeight;
+  }
+  await addPhotoAnnex(pdf, margin, pageW, pageH);
+  pdf.save("med_eer.pdf");
+});
+loadAuto();
+</script>
+</body>
+</html>
